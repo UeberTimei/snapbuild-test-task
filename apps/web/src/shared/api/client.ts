@@ -1,4 +1,11 @@
+import { z, type ZodType } from "zod";
+
 const BASE = import.meta.env.VITE_API_BASE ?? "/api";
+
+const ErrorBody = z.object({
+  message: z.string().optional(),
+  issues: z.array(z.string()).optional(),
+});
 
 export class ApiError extends Error {
   constructor(
@@ -10,33 +17,41 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, init);
-  if (!res.ok) throw new ApiError(await errorMessage(res), res.status);
-  return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+async function request<T>(path: string, schema: ZodType<T>, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${BASE}${path}`, init);
+  if (!response.ok) throw new ApiError(await errorMessage(response), response.status);
+
+  return schema.parse(await response.json());
 }
 
-async function errorMessage(res: Response): Promise<string> {
-  try {
-    const body = (await res.json()) as { message?: unknown; issues?: unknown };
-    if (Array.isArray(body.issues) && body.issues.length > 0) return body.issues.join("; ");
-    if (typeof body.message === "string") return body.message;
-  } catch {
-    /* non-JSON error body */
+async function errorMessage(response: Response): Promise<string> {
+  const body = await response
+    .json()
+    .then((payload: unknown) => ErrorBody.safeParse(payload))
+    .catch(() => null);
+
+  if (body?.success) {
+    const { issues, message } = body.data;
+    if (issues && issues.length > 0) return issues.join("; ");
+    if (message) return message;
   }
-  return `request failed with ${res.status}`;
+  return `request failed with ${response.status}`;
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, {
+  get: <T>(path: string, schema: ZodType<T>) => request(path, schema),
+
+  post: <T>(path: string, schema: ZodType<T>, body?: unknown) =>
+    request(path, schema, {
       method: "POST",
       headers: body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     }),
-  postForm: <T>(path: string, form: FormData) => request<T>(path, { method: "POST", body: form }),
-  /** Absolute URL for an asset, usable directly as an <img> src. */
+
+  postForm: <T>(path: string, schema: ZodType<T>, form: FormData) =>
+    request(path, schema, { method: "POST", body: form }),
+
   assetUrl: (assetId: string) => `${BASE}/assets/${assetId}`,
+
   eventsUrl: (path: string) => `${BASE}${path}`,
 };

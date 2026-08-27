@@ -1,68 +1,74 @@
-import type { NodeProps } from "@xyflow/react";
+import type { NodeKind } from "@repo/contracts";
+import type { NodeProps, NodeTypes } from "@xyflow/react";
 import { selectJob, useRunStore } from "@/entities/run";
-import { selectUpstreamNodeId, useWorkflowStore } from "@/entities/workflow";
+import { selectUpstreamNodeId, useWorkflowStore, type FlowNodeOf } from "@/entities/workflow";
 import { api } from "@/shared/api";
 import { Empty } from "@/shared/ui";
 import { NodeShell } from "./node-shell";
 
-export function PromptNode({ id, data, selected }: NodeProps) {
-  const text = String(data.text ?? "");
+type NodeComponentProps<K extends NodeKind> = NodeProps<FlowNodeOf<K>>;
+
+function PromptNode({ id, data, selected }: NodeComponentProps<"prompt">) {
   return (
     <NodeShell id={id} kind="prompt" selected={selected}>
-      <p className="node__text">{text || <span className="muted">empty prompt</span>}</p>
-    </NodeShell>
-  );
-}
-
-export function ImageInputNode({ id, data, selected }: NodeProps) {
-  const assetId = data.assetId as string | null;
-  return (
-    <NodeShell id={id} kind="imageInput" selected={selected}>
-      {assetId ? (
-        <img className="node__image" src={api.assetUrl(assetId)} alt="source" />
+      {data.text ? (
+        <p className="node__text">{data.text}</p>
       ) : (
-        <span className="muted">no image uploaded</span>
+        <span className="muted">empty prompt</span>
       )}
     </NodeShell>
   );
 }
 
-export function GenerateImageNode({ id, data, selected }: NodeProps) {
-  const presetId = data.presetId as string | null;
+function ImageInputNode({ id, data, selected }: NodeComponentProps<"imageInput">) {
+  return (
+    <NodeShell id={id} kind="imageInput" selected={selected}>
+      {data.assetId === null ? (
+        <span className="muted">no image uploaded</span>
+      ) : (
+        <img className="node__image" src={api.assetUrl(data.assetId)} alt="source" />
+      )}
+    </NodeShell>
+  );
+}
+
+function GenerateImageNode({ id, data, selected }: NodeComponentProps<"generateImage">) {
   return (
     <NodeShell id={id} kind="generateImage" selected={selected}>
-      <span className="muted">{presetId ? `preset: ${presetId}` : "no preset"}</span>
+      <span className="muted">{data.presetId ? `preset: ${data.presetId}` : "no preset"}</span>
     </NodeShell>
   );
 }
 
-export function EditImageNode({ id, data, selected }: NodeProps) {
-  const instruction = String(data.instruction ?? "");
+function EditImageNode({ id, data, selected }: NodeComponentProps<"editImage">) {
   return (
     <NodeShell id={id} kind="editImage" selected={selected}>
-      <p className="node__text">{instruction || <span className="muted">no instruction</span>}</p>
+      {data.instruction ? (
+        <p className="node__text">{data.instruction}</p>
+      ) : (
+        <span className="muted">no instruction</span>
+      )}
     </NodeShell>
   );
 }
 
-export function ResultNode({ id, selected }: NodeProps) {
-  // A result node has no job of its own — it mirrors whatever its upstream produced.
+function ResultNode({ id, selected }: NodeComponentProps<"result">) {
   const upstreamId = useWorkflowStore(selectUpstreamNodeId(id, "in"));
   const upstreamJob = useRunStore(selectJob(upstreamId ?? ""));
-  const assetId = upstreamJob?.outputAssetId;
+  const assetId = upstreamJob?.outputAssetId ?? null;
 
   return (
     <NodeShell id={id} kind="result" selected={selected}>
-      {assetId ? (
-        <img className="node__image" src={api.assetUrl(assetId)} alt="result" />
-      ) : (
+      {assetId === null ? (
         <Empty>{upstreamJob?.status === "running" ? "generating…" : "no result yet"}</Empty>
+      ) : (
+        <img className="node__image" src={api.assetUrl(assetId)} alt="result" />
       )}
     </NodeShell>
   );
 }
 
-export const nodeTypes = {
+export const nodeTypes: NodeTypes = {
   prompt: PromptNode,
   imageInput: ImageInputNode,
   generateImage: GenerateImageNode,

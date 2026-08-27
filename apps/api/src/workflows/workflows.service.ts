@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
-import { type WorkflowGraph, validateGraph } from "@repo/contracts";
+import { WorkflowGraph, validateGraph } from "@repo/contracts";
 import { eq } from "drizzle-orm";
 import { DB, type Db } from "../db/db.module";
 import { workflows } from "../db/schema";
+
+type WorkflowRow = typeof workflows.$inferSelect;
 
 export interface WorkflowRecord {
   id: string;
@@ -11,6 +13,9 @@ export interface WorkflowRecord {
   graph: WorkflowGraph;
   updatedAt: number;
 }
+
+export class InvalidGraphError extends Error {}
+export class WorkflowNotFoundError extends Error {}
 
 @Injectable()
 export class WorkflowsService {
@@ -26,7 +31,12 @@ export class WorkflowsService {
   }
 
   create(name: string, graph: WorkflowGraph): WorkflowRecord {
-    const row = { id: randomUUID(), name, graphJson: JSON.stringify(graph), updatedAt: Date.now() };
+    const row = {
+      id: randomUUID(),
+      name,
+      graphJson: JSON.stringify(graph),
+      updatedAt: Date.now(),
+    };
     this.db.insert(workflows).values(row).run();
     return toRecord(row);
   }
@@ -34,26 +44,37 @@ export class WorkflowsService {
   update(id: string, name: string, graph: WorkflowGraph): WorkflowRecord | null {
     const existing = this.get(id);
     if (!existing) return null;
-    const patch = { name, graphJson: JSON.stringify(graph), updatedAt: Date.now() };
-    this.db.update(workflows).set(patch).where(eq(workflows.id, id)).run();
-    return { ...existing, name, graph, updatedAt: patch.updatedAt };
+
+    const updatedAt = Date.now();
+    this.db
+      .update(workflows)
+      .set({ name, graphJson: JSON.stringify(graph), updatedAt })
+      .where(eq(workflows.id, id))
+      .run();
+    return { id, name, graph, updatedAt };
   }
 
-  /** Returns a validated graph or throws with the collected errors. */
-  resolveGraph(input: { graph?: WorkflowGraph; workflowId?: string }): WorkflowGraph {
-    const graph = input.graph ?? this.get(input.workflowId ?? "")?.graph;
-    if (!graph) throw new Error(`workflow ${input.workflowId} not found`);
-    const check = validateGraph(graph);
-    if (!check.ok) throw new Error(`invalid graph: ${check.errors.join("; ")}`);
+  resolveRunnableGraph(request: { graph?: WorkflowGraph; workflowId?: string }): WorkflowGraph {
+    const graph = request.graph ?? this.requireWorkflow(request.workflowId).graph;
+    const validation = validateGraph(graph);
+    if (!validation.ok) {
+      throw new InvalidGraphError(`invalid graph: ${validation.errors.join("; ")}`);
+    }
     return graph;
+  }
+
+  private requireWorkflow(workflowId: string | undefined): WorkflowRecord {
+    const workflow = workflowId ? this.get(workflowId) : null;
+    if (!workflow) throw new WorkflowNotFoundError(`workflow ${workflowId} not found`);
+    return workflow;
   }
 }
 
-function toRecord(row: typeof workflows.$inferSelect): WorkflowRecord {
+function toRecord(row: WorkflowRow): WorkflowRecord {
   return {
     id: row.id,
     name: row.name,
-    graph: JSON.parse(row.graphJson) as WorkflowGraph,
+    graph: WorkflowGraph.parse(JSON.parse(row.graphJson)),
     updatedAt: row.updatedAt,
   };
 }

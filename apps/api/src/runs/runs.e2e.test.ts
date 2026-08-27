@@ -3,7 +3,13 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { unlinkSync } from "node:fs";
 import { Module, type INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import type { RunEvent, WorkflowGraph } from "@repo/contracts";
+import {
+  CreateRunResponse,
+  PresetList,
+  RunDto,
+  RunEvent,
+  type WorkflowGraph,
+} from "@repo/contracts";
 import { AiModule } from "../ai/ai.module";
 import { IMAGE_PROVIDER, type GeneratedImage, type ImageProvider } from "../ai/image-provider";
 import { AssetsModule } from "../assets/assets.module";
@@ -50,7 +56,7 @@ afterAll(async () => {
   try {
     unlinkSync(DB_FILE);
   } catch {
-    /* already gone */
+    return;
   }
 });
 
@@ -78,16 +84,13 @@ test("POST /runs runs the branching graph to completion and streams SSE", async 
     body: JSON.stringify({ graph }),
   });
   expect(created.status).toBe(201);
-  const { runId } = (await created.json()) as { runId: string };
+  const { runId } = CreateRunResponse.parse(await created.json());
 
   const statuses = await collectSse(`${baseUrl}/runs/${runId}/events`);
   expect(statuses).toContain("run:completed");
-  expect(statuses.filter((s) => s === "job:success")).toHaveLength(2);
+  expect(statuses.filter((status) => status === "job:success")).toHaveLength(2);
 
-  const final = (await (await fetch(`${baseUrl}/runs/${runId}`)).json()) as {
-    status: string;
-    jobs: { outputAssetId: string | null }[];
-  };
+  const final = RunDto.parse(await (await fetch(`${baseUrl}/runs/${runId}`)).json());
   expect(final.status).toBe("completed");
   const assetId = final.jobs[0]?.outputAssetId;
   expect(assetId).toBeTruthy();
@@ -113,14 +116,15 @@ test("POST /runs rejects a cyclic graph with 400", async () => {
 });
 
 test("GET /presets returns the seeded preset", async () => {
-  const presets = (await (await fetch(`${baseUrl}/presets`)).json()) as { id: string }[];
-  expect(presets.map((p) => p.id)).toContain("preset-demo");
+  const presets = PresetList.parse(await (await fetch(`${baseUrl}/presets`)).json());
+  expect(presets.map((preset) => preset.id)).toContain("preset-demo");
 });
 
-/** Reads the SSE stream until the run completes, returning a status trace. */
 async function collectSse(url: string): Promise<string[]> {
   const res = await fetch(url, { headers: { Accept: "text/event-stream" } });
-  const reader = res.body!.getReader();
+  if (!res.body) throw new Error("SSE response has no body");
+
+  const reader = res.body.getReader();
   const decoder = new TextDecoder();
   const seen: string[] = [];
   let buffer = "";
@@ -132,9 +136,10 @@ async function collectSse(url: string): Promise<string[]> {
     const frames = buffer.split("\n\n");
     buffer = frames.pop() ?? "";
     for (const frame of frames) {
-      const line = frame.split("\n").find((l) => l.startsWith("data:"));
+      const line = frame.split("\n").find((candidate) => candidate.startsWith("data:"));
       if (!line) continue;
-      const event = JSON.parse(line.slice(5)) as RunEvent;
+
+      const event = RunEvent.parse(JSON.parse(line.slice(5)));
       seen.push(event.type === "run" ? `run:${event.run.status}` : `job:${event.job.status}`);
       if (event.type === "run" && event.run.status === "completed") {
         await reader.cancel();

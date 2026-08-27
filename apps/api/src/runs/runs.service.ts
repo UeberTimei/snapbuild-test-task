@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import type { RunDto, RunEvent, WorkflowGraph } from "@repo/contracts";
+import { JobDto, RunStatus, type RunDto, type RunEvent, type WorkflowGraph } from "@repo/contracts";
 import { eq } from "drizzle-orm";
 import { AssetsService } from "../assets/assets.service";
 import { IMAGE_PROVIDER, type ImageProvider } from "../ai/image-provider";
@@ -10,10 +10,15 @@ import { jobs as jobsTable, runs as runsTable } from "../db/schema";
 import { Executor } from "./executor";
 import { RunState } from "./run-state";
 
+type RunRow = typeof runsTable.$inferSelect;
+type JobRow = typeof jobsTable.$inferSelect;
+
+export class RunNotActiveError extends Error {}
+
 @Injectable()
 export class RunsService {
   private readonly log = new Logger(RunsService.name);
-  private readonly active = new Map<string, RunState>();
+  private readonly activeRuns = new Map<string, RunState>();
   private readonly executor: Executor;
 
   constructor(
@@ -25,77 +30,69 @@ export class RunsService {
     this.executor = new Executor({ provider, assets, presets });
   }
 
-  /** Creates a run, starts it in the background, returns immediately. */
   create(graph: WorkflowGraph, workflowId?: string): string {
     const run = new RunState(randomUUID(), graph, Date.now());
     this.executor.initJobs(run);
-    this.active.set(run.id, run);
+    this.activeRuns.set(run.id, run);
 
+    this.insertRun(run, workflowId);
+    run.onEvent((event) => this.persistEvent(run.id, event));
+    this.execute(run);
+
+    return run.id;
+  }
+
+  get(runId: string): RunDto | null {
+    const active = this.activeRuns.get(runId);
+    if (active) return active.toDto();
+
+    const row = this.db.select().from(runsTable).where(eq(runsTable.id, runId)).get();
+    return row ? this.toRunDto(row) : null;
+  }
+
+  subscribe(runId: string, onEvent: (event: RunEvent) => void): () => void {
+    const snapshot = this.get(runId);
+    if (snapshot) onEvent({ type: "run", run: snapshot });
+
+    const run = this.activeRuns.get(runId);
+    return run ? run.onEvent(onEvent) : () => {};
+  }
+
+  retry(runId: string, jobId: string): void {
+    const run = this.activeRuns.get(runId);
+    if (!run) throw new RunNotActiveError(`run ${runId} is no longer active`);
+
+    this.executor.prepareRetry(run, jobId);
+    this.execute(run);
+  }
+
+  private execute(run: RunState): void {
+    void this.executor
+      .run(run)
+      .catch((error: unknown) => this.log.error(`run ${run.id} crashed`, error));
+  }
+
+  private insertRun(run: RunState, workflowId: string | undefined): void {
     this.db
       .insert(runsTable)
       .values({
         id: run.id,
         workflowId: workflowId ?? null,
         status: run.status,
-        graphJson: JSON.stringify(graph),
+        graphJson: JSON.stringify(run.graph),
         createdAt: run.createdAt,
       })
       .run();
-    for (const job of run.jobs.values()) {
+
+    for (const job of run.jobs) {
       this.db
         .insert(jobsTable)
         .values({ ...job, runId: run.id })
         .run();
     }
-    run.events.on("event", (event: RunEvent) => this.persist(run.id, event));
-
-    void this.executor.run(run).catch((err) => this.log.error(`run ${run.id} crashed`, err));
-    return run.id;
   }
 
-  get(runId: string): RunDto | null {
-    const live = this.active.get(runId);
-    if (live) return live.toDto();
-
-    const row = this.db.select().from(runsTable).where(eq(runsTable.id, runId)).get();
-    if (!row) return null;
-    const jobRows = this.db.select().from(jobsTable).where(eq(jobsTable.runId, runId)).all();
-    return {
-      id: row.id,
-      status: row.status as RunDto["status"],
-      createdAt: new Date(row.createdAt).toISOString(),
-      jobs: jobRows.map((j) => ({
-        id: j.id,
-        nodeId: j.nodeId,
-        kind: j.kind,
-        status: j.status as RunDto["jobs"][number]["status"],
-        attempts: j.attempts,
-        error: j.error,
-        outputAssetId: j.outputAssetId,
-      })),
-    };
-  }
-
-  /** Live event stream for SSE; the current snapshot is replayed first. */
-  subscribe(runId: string, onEvent: (event: RunEvent) => void): () => void {
-    const run = this.active.get(runId);
-    const snapshot = this.get(runId);
-    if (snapshot) onEvent({ type: "run", run: snapshot });
-    if (!run) return () => {};
-
-    run.events.on("event", onEvent);
-    return () => run.events.off("event", onEvent);
-  }
-
-  /** Validates the retry, then re-runs in the background so the request returns immediately. */
-  retry(runId: string, jobId: string): void {
-    const run = this.active.get(runId);
-    if (!run) throw new Error(`run ${runId} is no longer active`);
-    this.executor.prepareRetry(run, jobId);
-    void this.executor.run(run).catch((err) => this.log.error(`retry of ${runId} crashed`, err));
-  }
-
-  private persist(runId: string, event: RunEvent): void {
+  private persistEvent(runId: string, event: RunEvent): void {
     if (event.type === "run") {
       this.db
         .update(runsTable)
@@ -104,6 +101,7 @@ export class RunsService {
         .run();
       return;
     }
+
     const { id, status, attempts, error, outputAssetId } = event.job;
     this.db
       .update(jobsTable)
@@ -111,4 +109,26 @@ export class RunsService {
       .where(eq(jobsTable.id, id))
       .run();
   }
+
+  private toRunDto(row: RunRow): RunDto {
+    const jobRows = this.db.select().from(jobsTable).where(eq(jobsTable.runId, row.id)).all();
+    return {
+      id: row.id,
+      status: RunStatus.parse(row.status),
+      createdAt: new Date(row.createdAt).toISOString(),
+      jobs: jobRows.map(toJobDto),
+    };
+  }
+}
+
+function toJobDto(row: JobRow): JobDto {
+  return JobDto.parse({
+    id: row.id,
+    nodeId: row.nodeId,
+    kind: row.kind,
+    status: row.status,
+    attempts: row.attempts,
+    error: row.error,
+    outputAssetId: row.outputAssetId,
+  });
 }

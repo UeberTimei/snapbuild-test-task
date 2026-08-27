@@ -1,17 +1,13 @@
 import type { JobStatus } from "@repo/contracts";
 
-/** Visual tone for a job status, shared by the canvas badges and the run panel. */
+const TONE_BY_STATUS: Record<JobStatus, string> = {
+  idle: "idle",
+  queued: "queued",
+  running: "running",
+  success: "success",
+  error: "error",
+};
+
 export function jobTone(status: JobStatus | undefined): string {
-  switch (status) {
-    case "queued":
-      return "queued";
-    case "running":
-      return "running";
-    case "success":
-      return "success";
-    case "error":
-      return "error";
-    default:
-      return "idle";
-  }
+  return status ? TONE_BY_STATUS[status] : "idle";
 }

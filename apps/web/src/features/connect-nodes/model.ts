@@ -1,23 +1,23 @@
 import { portType, portsCompatible, type NodeKind } from "@repo/contracts";
-import type { Connection, Edge, Node } from "@xyflow/react";
+import type { Connection, Edge } from "@xyflow/react";
 
-/**
- * Connection rule for the canvas: ports must carry the same type (text/image)
- * and a node may not connect to itself. The rule comes from @repo/contracts so
- * the canvas and the backend validator cannot drift apart.
- */
+export interface ConnectableNode {
+  id: string;
+  type: NodeKind;
+}
+
 export function isValidConnection(
   connection: Connection | Edge,
-  nodes: Pick<Node, "id" | "type">[],
+  nodes: ConnectableNode[],
 ): boolean {
   if (connection.source === connection.target) return false;
 
-  const sourceKind = nodes.find((n) => n.id === connection.source)?.type as NodeKind | undefined;
-  const targetKind = nodes.find((n) => n.id === connection.target)?.type as NodeKind | undefined;
-  if (!sourceKind || !targetKind) return false;
+  const source = nodes.find((node) => node.id === connection.source);
+  const target = nodes.find((node) => node.id === connection.target);
+  if (!source || !target) return false;
 
   return portsCompatible(
-    portType(sourceKind, "outputs", connection.sourceHandle),
-    portType(targetKind, "inputs", connection.targetHandle),
+    portType(source.type, "outputs", connection.sourceHandle),
+    portType(target.type, "inputs", connection.targetHandle),
   );
 }

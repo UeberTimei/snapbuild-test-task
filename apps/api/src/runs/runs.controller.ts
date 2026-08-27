@@ -11,12 +11,19 @@ import {
 import {
   CreateRunRequest,
   type CreateRunResponse,
+  type RetryResponse,
   type RunDto,
   type RunEvent,
 } from "@repo/contracts";
 import { Observable } from "rxjs";
-import { WorkflowsService } from "../workflows/workflows.service";
-import { RunsService } from "./runs.service";
+import { ZodBody } from "../common/zod-body.decorator";
+import {
+  InvalidGraphError,
+  WorkflowNotFoundError,
+  WorkflowsService,
+} from "../workflows/workflows.service";
+import { JobNotFoundError, JobNotRetryableError } from "./executor";
+import { RunNotActiveError, RunsService } from "./runs.service";
 
 @Controller("runs")
 export class RunsController {
@@ -26,19 +33,14 @@ export class RunsController {
   ) {}
 
   @Post()
-  create(@Body() body: unknown): CreateRunResponse {
-    const parsed = CreateRunRequest.safeParse(body);
-    if (!parsed.success) {
-      throw new BadRequestException({
-        message: "validation failed",
-        issues: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
-      });
-    }
+  create(@Body(ZodBody(CreateRunRequest)) body: CreateRunRequest): CreateRunResponse {
     try {
-      const graph = this.workflows.resolveGraph(parsed.data);
-      return { runId: this.runs.create(graph, parsed.data.workflowId) };
-    } catch (err) {
-      throw new BadRequestException(err instanceof Error ? err.message : "could not start run");
+      const graph = this.workflows.resolveRunnableGraph(body);
+      return { runId: this.runs.create(graph, body.workflowId) };
+    } catch (error) {
+      if (error instanceof InvalidGraphError) throw new BadRequestException(error.message);
+      if (error instanceof WorkflowNotFoundError) throw new NotFoundException(error.message);
+      throw error;
     }
   }
 
@@ -52,23 +54,26 @@ export class RunsController {
   @Sse(":id/events")
   events(@Param("id") id: string): Observable<{ data: RunEvent }> {
     if (!this.runs.get(id)) throw new NotFoundException();
-    return new Observable((subscriber) => {
-      const unsubscribe = this.runs.subscribe(id, (event) => {
+
+    return new Observable((subscriber) =>
+      this.runs.subscribe(id, (event) => {
         subscriber.next({ data: event });
-        // A failed run stays open so a retry keeps streaming; the client closes it.
         if (event.type === "run" && event.run.status === "completed") subscriber.complete();
-      });
-      return unsubscribe;
-    });
+      }),
+    );
   }
 
   @Post(":id/jobs/:jobId/retry")
-  retry(@Param("id") id: string, @Param("jobId") jobId: string): { ok: true } {
+  retry(@Param("id") id: string, @Param("jobId") jobId: string): RetryResponse {
     try {
       this.runs.retry(id, jobId);
       return { ok: true };
-    } catch (err) {
-      throw new BadRequestException(err instanceof Error ? err.message : "retry failed");
+    } catch (error) {
+      if (error instanceof RunNotActiveError || error instanceof JobNotFoundError) {
+        throw new NotFoundException(error.message);
+      }
+      if (error instanceof JobNotRetryableError) throw new BadRequestException(error.message);
+      throw error;
     }
   }
 }

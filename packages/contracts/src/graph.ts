@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { NODE_KINDS, portType, portsCompatible, type NodeKind } from "./ports";
+import {
+  defaultInputHandle,
+  portType,
+  portsCompatible,
+  requiredInputsOf,
+  type NodeKind,
+} from "./ports";
 
 const Position = z.object({ x: z.number(), y: z.number() });
 
@@ -11,6 +17,18 @@ export const EditImageData = z.object({
   instruction: z.string(),
 });
 export const ResultData = z.object({});
+
+export const NODE_DATA_SCHEMAS = {
+  prompt: PromptData,
+  imageInput: ImageInputData,
+  generateImage: GenerateImageData,
+  editImage: EditImageData,
+  result: ResultData,
+} satisfies Record<NodeKind, z.ZodType>;
+
+export type NodeDataByKind = {
+  [K in NodeKind]: z.infer<(typeof NODE_DATA_SCHEMAS)[K]>;
+};
 
 export const WorkflowNode = z.discriminatedUnion("kind", [
   z.object({ id: z.string(), kind: z.literal("prompt"), position: Position, data: PromptData }),
@@ -36,6 +54,8 @@ export const WorkflowNode = z.discriminatedUnion("kind", [
 ]);
 export type WorkflowNode = z.infer<typeof WorkflowNode>;
 
+export type NodeOfKind<K extends NodeKind> = Extract<WorkflowNode, { kind: K }>;
+
 export const WorkflowEdge = z.object({
   id: z.string(),
   source: z.string(),
@@ -53,119 +73,164 @@ export type WorkflowGraph = z.infer<typeof WorkflowGraph>;
 
 export type GraphValidation = { ok: true } | { ok: false; errors: string[] };
 
-/** Structural + semantic validation beyond what the zod schema covers. */
 export function validateGraph(input: unknown): GraphValidation {
   const parsed = WorkflowGraph.safeParse(input);
   if (!parsed.success) {
     return {
       ok: false,
-      errors: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+      errors: parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`),
     };
   }
+
   const graph = parsed.data;
-  const errors: string[] = [];
-  const nodes = new Map(graph.nodes.map((n) => [n.id, n]));
-
-  // edges reference existing nodes/ports with matching types; one inbound per input port
-  const filledInputs = new Set<string>();
-  for (const edge of graph.edges) {
-    const src = nodes.get(edge.source);
-    const dst = nodes.get(edge.target);
-    if (!src) {
-      errors.push(`edge ${edge.id}: unknown source node ${edge.source}`);
-      continue;
-    }
-    if (!dst) {
-      errors.push(`edge ${edge.id}: unknown target node ${edge.target}`);
-      continue;
-    }
-    const srcType = portType(src.kind, "outputs", edge.sourceHandle);
-    const dstType = portType(dst.kind, "inputs", edge.targetHandle);
-    if (!portsCompatible(srcType, dstType)) {
-      errors.push(`edge ${edge.id}: incompatible ports (${srcType ?? "?"} -> ${dstType ?? "?"})`);
-      continue;
-    }
-    const key = `${edge.target}:${edge.targetHandle ?? NODE_KINDS[dst.kind].inputs[0]?.id}`;
-    if (filledInputs.has(key))
-      errors.push(
-        `node ${edge.target}: input port ${edge.targetHandle} has multiple inbound edges`,
-      );
-    filledInputs.add(key);
-  }
-
-  // required inputs connected
-  for (const node of graph.nodes) {
-    for (const port of NODE_KINDS[node.kind].inputs) {
-      if (port.required === false) continue;
-      if (!filledInputs.has(`${node.id}:${port.id}`)) {
-        errors.push(`node ${node.id} (${node.kind}): required input "${port.id}" is not connected`);
-      }
-    }
-  }
-
-  if (hasCycle(graph)) errors.push("graph contains a cycle");
-
+  const errors = [
+    ...edgeErrors(graph),
+    ...missingRequiredInputErrors(graph),
+    ...(hasCycle(graph) ? ["graph contains a cycle"] : []),
+  ];
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
 }
 
-function hasCycle(graph: WorkflowGraph): boolean {
-  const adj = new Map<string, string[]>();
-  for (const n of graph.nodes) adj.set(n.id, []);
-  for (const e of graph.edges) adj.get(e.source)?.push(e.target);
-
-  const state = new Map<string, 0 | 1 | 2>(); // 0=unseen 1=in-stack 2=done
-  const visit = (id: string): boolean => {
-    if (state.get(id) === 1) return true;
-    if (state.get(id) === 2) return false;
-    state.set(id, 1);
-    for (const next of adj.get(id) ?? []) {
-      if (visit(next)) return true;
-    }
-    state.set(id, 2);
-    return false;
-  };
-  return graph.nodes.some((n) => visit(n.id));
+function connectedInputKeys(graph: WorkflowGraph): Set<string> {
+  const nodeKinds = kindsById(graph);
+  const keys = new Set<string>();
+  for (const edge of graph.edges) {
+    const targetKind = nodeKinds.get(edge.target);
+    if (!targetKind) continue;
+    const handle = edge.targetHandle ?? defaultInputHandle(targetKind);
+    if (handle) keys.add(inputKey(edge.target, handle));
+  }
+  return keys;
 }
 
-/** Node ids in dependency order. Assumes the graph is acyclic. */
+function edgeErrors(graph: WorkflowGraph): string[] {
+  const nodeKinds = kindsById(graph);
+  const errors: string[] = [];
+  const occupied = new Set<string>();
+
+  for (const edge of graph.edges) {
+    const sourceKind = nodeKinds.get(edge.source);
+    const targetKind = nodeKinds.get(edge.target);
+
+    if (!sourceKind) {
+      errors.push(`edge ${edge.id}: unknown source node ${edge.source}`);
+      continue;
+    }
+    if (!targetKind) {
+      errors.push(`edge ${edge.id}: unknown target node ${edge.target}`);
+      continue;
+    }
+
+    const source = portType(sourceKind, "outputs", edge.sourceHandle);
+    const target = portType(targetKind, "inputs", edge.targetHandle);
+    if (!portsCompatible(source, target)) {
+      errors.push(`edge ${edge.id}: incompatible ports (${source ?? "?"} -> ${target ?? "?"})`);
+      continue;
+    }
+
+    const handle = edge.targetHandle ?? defaultInputHandle(targetKind);
+    if (!handle) continue;
+    const key = inputKey(edge.target, handle);
+    if (occupied.has(key)) {
+      errors.push(`node ${edge.target}: input port ${handle} has multiple inbound edges`);
+    }
+    occupied.add(key);
+  }
+
+  return errors;
+}
+
+function missingRequiredInputErrors(graph: WorkflowGraph): string[] {
+  const connected = connectedInputKeys(graph);
+  return graph.nodes.flatMap((node) =>
+    requiredInputsOf(node.kind)
+      .filter((port) => !connected.has(inputKey(node.id, port.id)))
+      .map(
+        (port) => `node ${node.id} (${node.kind}): required input "${port.id}" is not connected`,
+      ),
+  );
+}
+
+function inputKey(nodeId: string, handle: string): string {
+  return `${nodeId}:${handle}`;
+}
+
+function kindsById(graph: WorkflowGraph): Map<string, NodeKind> {
+  return new Map(graph.nodes.map((node) => [node.id, node.kind]));
+}
+
+function outgoingEdges(graph: WorkflowGraph): Map<string, string[]> {
+  const adjacency = new Map<string, string[]>(graph.nodes.map((node) => [node.id, []]));
+  for (const edge of graph.edges) adjacency.get(edge.source)?.push(edge.target);
+  return adjacency;
+}
+
+function hasCycle(graph: WorkflowGraph): boolean {
+  const adjacency = outgoingEdges(graph);
+  const onStack = new Set<string>();
+  const finished = new Set<string>();
+
+  const reachesItself = (nodeId: string): boolean => {
+    if (onStack.has(nodeId)) return true;
+    if (finished.has(nodeId)) return false;
+
+    onStack.add(nodeId);
+    const cyclic = (adjacency.get(nodeId) ?? []).some(reachesItself);
+    onStack.delete(nodeId);
+    finished.add(nodeId);
+    return cyclic;
+  };
+
+  return graph.nodes.some((node) => reachesItself(node.id));
+}
+
 export function topoOrder(graph: WorkflowGraph): string[] {
-  const indegree = new Map<string, number>();
-  const adj = new Map<string, string[]>();
-  for (const n of graph.nodes) {
-    indegree.set(n.id, 0);
-    adj.set(n.id, []);
+  const adjacency = outgoingEdges(graph);
+  const indegree = new Map<string, number>(graph.nodes.map((node) => [node.id, 0]));
+  for (const edge of graph.edges) {
+    indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
   }
-  for (const e of graph.edges) {
-    adj.get(e.source)?.push(e.target);
-    indegree.set(e.target, (indegree.get(e.target) ?? 0) + 1);
-  }
-  const queue = [...indegree].filter(([, d]) => d === 0).map(([id]) => id);
+
+  const ready = [...indegree].filter(([, degree]) => degree === 0).map(([id]) => id);
   const order: string[] = [];
-  while (queue.length) {
-    const id = queue.shift()!;
-    order.push(id);
-    for (const next of adj.get(id) ?? []) {
-      const d = (indegree.get(next) ?? 0) - 1;
-      indegree.set(next, d);
-      if (d === 0) queue.push(next);
+
+  while (ready.length > 0) {
+    const nodeId = ready.shift();
+    if (nodeId === undefined) break;
+    order.push(nodeId);
+
+    for (const next of adjacency.get(nodeId) ?? []) {
+      const remaining = (indegree.get(next) ?? 0) - 1;
+      indegree.set(next, remaining);
+      if (remaining === 0) ready.push(next);
     }
   }
+
   return order;
 }
 
-/** Direct upstream node ids for a given node. */
 export function dependenciesOf(graph: WorkflowGraph, nodeId: string): string[] {
-  return graph.edges.filter((e) => e.target === nodeId).map((e) => e.source);
+  return graph.edges.filter((edge) => edge.target === nodeId).map((edge) => edge.source);
 }
 
-export type KindData = {
-  prompt: z.infer<typeof PromptData>;
-  imageInput: z.infer<typeof ImageInputData>;
-  generateImage: z.infer<typeof GenerateImageData>;
-  editImage: z.infer<typeof EditImageData>;
-  result: z.infer<typeof ResultData>;
-};
+export function findNode(graph: WorkflowGraph, nodeId: string): WorkflowNode | undefined {
+  return graph.nodes.find((node) => node.id === nodeId);
+}
 
-export function nodesByKind<K extends NodeKind>(graph: WorkflowGraph, kind: K) {
-  return graph.nodes.filter((n): n is Extract<WorkflowNode, { kind: K }> => n.kind === kind);
+export function descendantsOf(graph: WorkflowGraph, nodeId: string): Set<string> {
+  const adjacency = outgoingEdges(graph);
+  const reached = new Set<string>([nodeId]);
+  const pending = [nodeId];
+
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined) break;
+    for (const next of adjacency.get(current) ?? []) {
+      if (reached.has(next)) continue;
+      reached.add(next);
+      pending.push(next);
+    }
+  }
+
+  return reached;
 }

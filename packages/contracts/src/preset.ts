@@ -9,7 +9,10 @@ export const Preset = z.object({
 });
 export type Preset = z.infer<typeof Preset>;
 
-/** Output of the RequestBuilder: what actually gets sent to the image provider. */
+export const PresetList = z.array(Preset);
+
+export const PresetReferences = z.array(z.string());
+
 export interface ImageRequest {
   prompt: string;
   negativePrompt?: string;

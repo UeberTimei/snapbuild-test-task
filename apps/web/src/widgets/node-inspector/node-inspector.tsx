@@ -1,7 +1,11 @@
-import type { NodeKind } from "@repo/contracts";
-import { nodeMeta } from "@/entities/node";
-import { selectSelectedNode, useWorkflowStore } from "@/entities/workflow";
+import { nodeLabel } from "@/entities/node";
 import { usePresets } from "@/entities/preset";
+import {
+  selectSelectedNode,
+  useWorkflowStore,
+  type FlowNode,
+  type FlowNodeOf,
+} from "@/entities/workflow";
 import { useUploadImage } from "@/features/upload-image";
 import { api } from "@/shared/api";
 import { Empty, Field, Panel } from "@/shared/ui";
@@ -17,66 +21,64 @@ export function NodeInspector() {
     );
   }
 
-  const kind = node.type as NodeKind;
   return (
-    <Panel title={`${nodeMeta(kind).label} settings`}>
-      <NodeFields nodeId={node.id} kind={kind} data={node.data} />
+    <Panel title={`${nodeLabel(node.type)} settings`}>
+      <NodeFields node={node} />
     </Panel>
   );
 }
 
-function NodeFields({
-  nodeId,
-  kind,
-  data,
-}: {
-  nodeId: string;
-  kind: NodeKind;
-  data: Record<string, unknown>;
-}) {
-  const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
-
-  switch (kind) {
+function NodeFields({ node }: { node: FlowNode }) {
+  switch (node.type) {
     case "prompt":
-      return (
-        <Field label="Prompt">
-          <textarea
-            rows={5}
-            value={String(data.text ?? "")}
-            placeholder="describe the image"
-            onChange={(e) => updateNodeData(nodeId, { text: e.target.value })}
-          />
-        </Field>
-      );
-
+      return <PromptFields node={node} />;
     case "imageInput":
-      return <ImageInputFields nodeId={nodeId} assetId={data.assetId as string | null} />;
-
+      return <ImageInputFields node={node} />;
     case "generateImage":
-      return <PresetField nodeId={nodeId} presetId={data.presetId as string | null} />;
-
+      return <PresetField nodeId={node.id} presetId={node.data.presetId} />;
     case "editImage":
-      return (
-        <>
-          <Field label="Instruction">
-            <textarea
-              rows={3}
-              value={String(data.instruction ?? "")}
-              placeholder="make the background blue"
-              onChange={(e) => updateNodeData(nodeId, { instruction: e.target.value })}
-            />
-          </Field>
-          <PresetField nodeId={nodeId} presetId={data.presetId as string | null} />
-        </>
-      );
-
-    default:
+      return <EditImageFields node={node} />;
+    case "result":
       return <Empty>This node has no settings.</Empty>;
   }
 }
 
-function ImageInputFields({ nodeId, assetId }: { nodeId: string; assetId: string | null }) {
-  const { upload, busy, error } = useUploadImage(nodeId);
+function PromptFields({ node }: { node: FlowNodeOf<"prompt"> }) {
+  const setPromptText = useWorkflowStore((state) => state.setPromptText);
+
+  return (
+    <Field label="Prompt">
+      <textarea
+        rows={5}
+        value={node.data.text}
+        placeholder="describe the image"
+        onChange={(event) => setPromptText(node.id, event.target.value)}
+      />
+    </Field>
+  );
+}
+
+function EditImageFields({ node }: { node: FlowNodeOf<"editImage"> }) {
+  const setEditInstruction = useWorkflowStore((state) => state.setEditInstruction);
+
+  return (
+    <>
+      <Field label="Instruction">
+        <textarea
+          rows={3}
+          value={node.data.instruction}
+          placeholder="make the background blue"
+          onChange={(event) => setEditInstruction(node.id, event.target.value)}
+        />
+      </Field>
+      <PresetField nodeId={node.id} presetId={node.data.presetId} />
+    </>
+  );
+}
+
+function ImageInputFields({ node }: { node: FlowNodeOf<"imageInput"> }) {
+  const { upload, uploading, error } = useUploadImage(node.id);
+  const { assetId } = node.data;
 
   return (
     <>
@@ -84,22 +86,24 @@ function ImageInputFields({ nodeId, assetId }: { nodeId: string; assetId: string
         <input
           type="file"
           accept="image/*"
-          disabled={busy}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
+          disabled={uploading}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
             if (file) void upload(file);
           }}
         />
       </Field>
-      {busy && <p className="muted">uploading…</p>}
+      {uploading && <p className="muted">uploading…</p>}
       {error && <p className="error">{error}</p>}
-      {assetId && <img className="preview" src={api.assetUrl(assetId)} alt="uploaded source" />}
+      {assetId !== null && (
+        <img className="preview" src={api.assetUrl(assetId)} alt="uploaded source" />
+      )}
     </>
   );
 }
 
 function PresetField({ nodeId, presetId }: { nodeId: string; presetId: string | null }) {
-  const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
+  const setPreset = useWorkflowStore((state) => state.setPreset);
   const { presets, error } = usePresets();
 
   return (
@@ -107,7 +111,7 @@ function PresetField({ nodeId, presetId }: { nodeId: string; presetId: string | 
       <Field label="Preset">
         <select
           value={presetId ?? ""}
-          onChange={(e) => updateNodeData(nodeId, { presetId: e.target.value || null })}
+          onChange={(event) => setPreset(nodeId, event.target.value || null)}
         >
           <option value="">No preset</option>
           {presets.map((preset) => (

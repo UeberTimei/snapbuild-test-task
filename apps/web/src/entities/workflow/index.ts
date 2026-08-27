@@ -1,8 +1,3 @@
-export {
-  useWorkflowStore,
-  selectSelectedNode,
-  selectUpstreamNodeId,
-  type FlowNode,
-  type FlowEdge,
-} from "./store";
+export { useWorkflowStore, selectSelectedNode, selectUpstreamNodeId } from "./store";
+export { type FlowNode, type FlowNodeOf, type FlowEdge } from "./flow-node";
 export { demoGraph } from "./demo-graph";

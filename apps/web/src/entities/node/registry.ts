@@ -1,15 +1,14 @@
-import { NODE_KINDS, type NodeKind, type WorkflowNode } from "@repo/contracts";
+import { NODE_KINDS, type NodeDataByKind, type NodeKind, type PortDef } from "@repo/contracts";
 
-export type NodeData = WorkflowNode["data"];
-
-/** Presentation metadata per node kind. Ports and rules come from contracts. */
-interface NodeMeta {
+interface NodeMeta<K extends NodeKind> {
   label: string;
   hint: string;
-  defaultData: NodeData;
+  defaultData: NodeDataByKind[K];
 }
 
-const META: Record<NodeKind, NodeMeta> = {
+type NodeMetaByKind = { [K in NodeKind]: NodeMeta<K> };
+
+const META: NodeMetaByKind = {
   prompt: {
     label: NODE_KINDS.prompt.label,
     hint: "Text that feeds generation",
@@ -45,18 +44,22 @@ export const NODE_ORDER: NodeKind[] = [
   "result",
 ];
 
-export function nodeMeta(kind: NodeKind): NodeMeta {
-  return META[kind];
+export function nodeLabel(kind: NodeKind): string {
+  return META[kind].label;
 }
 
-export function defaultDataFor(kind: NodeKind): NodeData {
+export function nodeHint(kind: NodeKind): string {
+  return META[kind].hint;
+}
+
+export function defaultDataFor<K extends NodeKind>(kind: K): NodeDataByKind[K] {
   return structuredClone(META[kind].defaultData);
 }
 
-export function inputsOf(kind: NodeKind) {
+export function inputsOf(kind: NodeKind): PortDef[] {
   return NODE_KINDS[kind].inputs;
 }
 
-export function outputsOf(kind: NodeKind) {
+export function outputsOf(kind: NodeKind): PortDef[] {
   return NODE_KINDS[kind].outputs;
 }

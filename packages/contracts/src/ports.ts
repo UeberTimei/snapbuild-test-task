@@ -9,8 +9,7 @@ export type NodeKind = z.infer<typeof NodeKind>;
 export interface PortDef {
   id: string;
   type: PortType;
-  /** Whether an inbound edge is required for the graph to be runnable. Defaults to true. */
-  required?: boolean;
+  required: boolean;
 }
 
 export interface NodeKindDef {
@@ -18,8 +17,7 @@ export interface NodeKindDef {
   label: string;
   inputs: PortDef[];
   outputs: PortDef[];
-  /** Node produces a Job on the backend executor (vs. resolved inline). */
-  executable: boolean;
+  producesJob: boolean;
 }
 
 export const NODE_KINDS: Record<NodeKind, NodeKindDef> = {
@@ -27,46 +25,53 @@ export const NODE_KINDS: Record<NodeKind, NodeKindDef> = {
     kind: "prompt",
     label: "Prompt",
     inputs: [],
-    outputs: [{ id: "out", type: "text" }],
-    executable: false,
+    outputs: [{ id: "out", type: "text", required: true }],
+    producesJob: false,
   },
   imageInput: {
     kind: "imageInput",
     label: "Image Input",
     inputs: [],
-    outputs: [{ id: "out", type: "image" }],
-    executable: false,
+    outputs: [{ id: "out", type: "image", required: true }],
+    producesJob: false,
   },
   generateImage: {
     kind: "generateImage",
     label: "Generate Image",
-    inputs: [{ id: "prompt", type: "text" }],
-    outputs: [{ id: "out", type: "image" }],
-    executable: true,
+    inputs: [{ id: "prompt", type: "text", required: true }],
+    outputs: [{ id: "out", type: "image", required: true }],
+    producesJob: true,
   },
   editImage: {
     kind: "editImage",
     label: "Edit Image",
     inputs: [
-      { id: "image", type: "image" },
+      { id: "image", type: "image", required: true },
       { id: "prompt", type: "text", required: false },
     ],
-    outputs: [{ id: "out", type: "image" }],
-    executable: true,
+    outputs: [{ id: "out", type: "image", required: true }],
+    producesJob: true,
   },
   result: {
     kind: "result",
     label: "Result",
-    inputs: [{ id: "in", type: "image" }],
+    inputs: [{ id: "in", type: "image", required: true }],
     outputs: [],
-    executable: false,
+    producesJob: false,
   },
 };
 
-function resolveHandle(ports: PortDef[], handle: string | null | undefined): PortDef | undefined {
-  if (ports.length === 0) return undefined;
-  if (handle == null) return ports[0];
-  return ports.find((p) => p.id === handle);
+export function requiredInputsOf(kind: NodeKind): PortDef[] {
+  return NODE_KINDS[kind].inputs.filter((port) => port.required);
+}
+
+export function hasSingleInput(kind: NodeKind): boolean {
+  return NODE_KINDS[kind].inputs.length === 1;
+}
+
+function resolvePort(ports: PortDef[], handle: string | null | undefined): PortDef | undefined {
+  if (handle == null) return ports.length === 1 ? ports[0] : undefined;
+  return ports.find((port) => port.id === handle);
 }
 
 export function portType(
@@ -74,7 +79,7 @@ export function portType(
   side: "inputs" | "outputs",
   handle: string | null | undefined,
 ): PortType | undefined {
-  return resolveHandle(NODE_KINDS[kind][side], handle)?.type;
+  return resolvePort(NODE_KINDS[kind][side], handle)?.type;
 }
 
 export function portsCompatible(
@@ -82,4 +87,8 @@ export function portsCompatible(
   target: PortType | undefined,
 ): boolean {
   return source !== undefined && source === target;
+}
+
+export function defaultInputHandle(kind: NodeKind): string | undefined {
+  return NODE_KINDS[kind].inputs[0]?.id;
 }

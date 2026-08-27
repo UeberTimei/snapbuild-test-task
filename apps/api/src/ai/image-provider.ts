@@ -11,8 +11,8 @@ export interface EditRequest extends ImageRequest {
 }
 
 export interface ImageProvider {
-  generate(req: ImageRequest): Promise<GeneratedImage>;
-  edit(req: EditRequest): Promise<GeneratedImage>;
+  generate(request: ImageRequest): Promise<GeneratedImage>;
+  edit(request: EditRequest): Promise<GeneratedImage>;
 }
 
 export const IMAGE_PROVIDER = Symbol("IMAGE_PROVIDER");
@@ -24,5 +24,12 @@ export class ImageProviderError extends Error {
   ) {
     super(message);
     this.name = "ImageProviderError";
+  }
+}
+
+export class MissingApiKeyError extends ImageProviderError {
+  constructor(message: string) {
+    super(message);
+    this.name = "MissingApiKeyError";
   }
 }

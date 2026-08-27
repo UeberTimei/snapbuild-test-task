@@ -1,1 +1,1 @@
-export { isValidConnection } from "./model";
+export { isValidConnection, type ConnectableNode } from "./model";

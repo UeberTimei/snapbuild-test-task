@@ -1,30 +1,32 @@
+import { AssetUploadResponse } from "@repo/contracts";
 import { useCallback, useState } from "react";
 import { useWorkflowStore } from "@/entities/workflow";
 import { api } from "@/shared/api";
 
-/** Uploads a file to the backend and stores the returned asset id on the node. */
 export function useUploadImage(nodeId: string) {
-  const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
-  const [busy, setBusy] = useState(false);
+  const setSourceAsset = useWorkflowStore((state) => state.setSourceAsset);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const upload = useCallback(
     async (file: File) => {
-      setBusy(true);
+      setUploading(true);
       setError(null);
+
+      const form = new FormData();
+      form.append("file", file);
+
       try {
-        const form = new FormData();
-        form.append("file", file);
-        const { id } = await api.postForm<{ id: string }>("/assets", form);
-        updateNodeData(nodeId, { assetId: id });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "upload failed");
+        const { id } = await api.postForm("/assets", AssetUploadResponse, form);
+        setSourceAsset(nodeId, id);
+      } catch (uploadError) {
+        setError(uploadError instanceof Error ? uploadError.message : "upload failed");
       } finally {
-        setBusy(false);
+        setUploading(false);
       }
     },
-    [nodeId, updateNodeData],
+    [nodeId, setSourceAsset],
   );
 
-  return { upload, busy, error };
+  return { upload, uploading, error };
 }

@@ -1,8 +1,1 @@
-export {
-  NODE_ORDER,
-  nodeMeta,
-  defaultDataFor,
-  inputsOf,
-  outputsOf,
-  type NodeData,
-} from "./registry";
+export { NODE_ORDER, nodeLabel, nodeHint, defaultDataFor, inputsOf, outputsOf } from "./registry";

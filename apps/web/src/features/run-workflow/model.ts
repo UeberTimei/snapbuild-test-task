@@ -1,59 +1,69 @@
-import { validateGraph, type CreateRunResponse, type RunEvent } from "@repo/contracts";
+import { CreateRunResponse, RetryResponse, RunEvent, validateGraph } from "@repo/contracts";
 import { useCallback, useEffect, useRef } from "react";
 import { useRunStore } from "@/entities/run";
 import { useWorkflowStore } from "@/entities/workflow";
 import { api } from "@/shared/api";
 
-/**
- * Starts a run for the current canvas graph and streams its progress over SSE
- * into the run store. Validation happens client-side first so an incomplete
- * graph gives immediate feedback instead of a round trip.
- */
 export function useRunWorkflow() {
-  const source = useRef<EventSource | null>(null);
+  const streamRef = useRef<EventSource | null>(null);
 
-  const close = useCallback(() => {
-    source.current?.close();
-    source.current = null;
+  const closeStream = useCallback(() => {
+    streamRef.current?.close();
+    streamRef.current = null;
   }, []);
 
-  useEffect(() => close, [close]);
+  useEffect(() => closeStream, [closeStream]);
+
+  const openStream = useCallback(
+    (runId: string) => {
+      const { apply } = useRunStore.getState();
+      const stream = new EventSource(api.eventsUrl(`/runs/${runId}/events`));
+
+      stream.addEventListener("message", (message: MessageEvent<string>) => {
+        const event = RunEvent.safeParse(JSON.parse(message.data));
+        if (event.success) apply(event.data);
+      });
+      stream.addEventListener("error", closeStream);
+
+      streamRef.current = stream;
+    },
+    [closeStream],
+  );
 
   const start = useCallback(async () => {
-    const { start: startRun, apply, fail } = useRunStore.getState();
+    const { start: startRun, fail } = useRunStore.getState();
     const graph = useWorkflowStore.getState().toGraph();
 
-    const check = validateGraph(graph);
-    if (!check.ok) {
-      fail(check.errors.join("; "));
+    const validation = validateGraph(graph);
+    if (!validation.ok) {
+      fail(validation.errors.join("; "));
       return;
     }
 
-    close();
+    closeStream();
     try {
-      const { runId } = await api.post<CreateRunResponse>("/runs", { graph });
+      const { runId } = await api.post("/runs", CreateRunResponse, { graph });
       startRun(runId);
-
-      const stream = new EventSource(api.eventsUrl(`/runs/${runId}/events`));
-      source.current = stream;
-      stream.addEventListener("message", (message) => apply(JSON.parse(message.data) as RunEvent));
-      // EventSource surfaces both a server close and a transport failure here;
-      // the run store already holds the last known state, so just stop retrying.
-      stream.addEventListener("error", () => close());
-    } catch (err) {
-      fail(err instanceof Error ? err.message : "could not start the run");
+      openStream(runId);
+    } catch (error) {
+      fail(describe(error, "could not start the run"));
     }
-  }, [close]);
+  }, [closeStream, openStream]);
 
   const retry = useCallback(async (jobId: string) => {
     const { runId, fail } = useRunStore.getState();
-    if (!runId) return;
+    if (runId === null) return;
+
     try {
-      await api.post(`/runs/${runId}/jobs/${jobId}/retry`);
-    } catch (err) {
-      fail(err instanceof Error ? err.message : "retry failed");
+      await api.post(`/runs/${runId}/jobs/${jobId}/retry`, RetryResponse);
+    } catch (error) {
+      fail(describe(error, "retry failed"));
     }
   }, []);
 
   return { start, retry };
+}
+
+function describe(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
 }

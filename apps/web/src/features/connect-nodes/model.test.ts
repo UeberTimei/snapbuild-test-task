@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { isValidConnection } from "./model";
+import { isValidConnection, type ConnectableNode } from "./model";
 
-const nodes = [
+const nodes: ConnectableNode[] = [
   { id: "p", type: "prompt" },
   { id: "gen", type: "generateImage" },
   { id: "res", type: "result" },

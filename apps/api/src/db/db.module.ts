@@ -7,8 +7,6 @@ import { seed } from "./seed";
 export const DB = Symbol("DB");
 export type Db = BunSQLiteDatabase<typeof schema>;
 
-// ponytail: idempotent DDL on boot instead of a migration tool. Upgrade to
-// drizzle-kit migrations if the schema starts changing in flight.
 const DDL = `
 CREATE TABLE IF NOT EXISTS workflows (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, graph_json TEXT NOT NULL, updated_at INTEGER NOT NULL
@@ -34,6 +32,7 @@ export function createDb(file = process.env.DB_FILE ?? "app.sqlite"): Db {
   const sqlite = new Database(file);
   sqlite.exec("PRAGMA journal_mode = WAL;");
   sqlite.exec(DDL);
+
   const db = drizzle(sqlite, { schema });
   seed(db);
   return db;

@@ -10,9 +10,12 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   server: {
-    // Proxy keeps the browser on one origin: no CORS, no API host in the client bundle.
     proxy: {
-      "/api": { target: API_URL, changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, "") },
+      "/api": {
+        target: API_URL,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
     },
   },
   test: {

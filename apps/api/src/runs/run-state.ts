@@ -1,13 +1,13 @@
-import { EventEmitter } from "node:events";
 import type { JobDto, RunDto, RunEvent, RunStatus, WorkflowGraph } from "@repo/contracts";
 
-/** What a resolved node hands to its downstream nodes. */
 export type NodeOutput = { type: "text"; value: string } | { type: "image"; assetId: string };
 
+export type RunEventListener = (event: RunEvent) => void;
+
 export class RunState {
-  readonly events = new EventEmitter();
-  readonly jobs = new Map<string, JobDto>(); // nodeId -> job
-  readonly outputs = new Map<string, NodeOutput>(); // nodeId -> resolved output
+  private readonly listeners = new Set<RunEventListener>();
+  readonly jobsByNodeId = new Map<string, JobDto>();
+  readonly outputsByNodeId = new Map<string, NodeOutput>();
   status: RunStatus = "queued";
 
   constructor(
@@ -16,17 +16,34 @@ export class RunState {
     readonly createdAt: number,
   ) {}
 
+  get jobs(): JobDto[] {
+    return [...this.jobsByNodeId.values()];
+  }
+
   toDto(): RunDto {
     return {
       id: this.id,
       status: this.status,
       createdAt: new Date(this.createdAt).toISOString(),
-      jobs: [...this.jobs.values()],
+      jobs: this.jobs,
     };
   }
 
+  findJobById(jobId: string): JobDto | undefined {
+    return this.jobs.find((job) => job.id === jobId);
+  }
+
+  jobFor(nodeId: string): JobDto | undefined {
+    return this.jobsByNodeId.get(nodeId);
+  }
+
+  onEvent(listener: RunEventListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
   emit(event: RunEvent): void {
-    this.events.emit("event", event);
+    for (const listener of this.listeners) listener(event);
   }
 
   setStatus(status: RunStatus): void {
@@ -36,11 +53,12 @@ export class RunState {
   }
 
   patchJob(nodeId: string, patch: Partial<JobDto>): JobDto {
-    const job = this.jobs.get(nodeId);
+    const job = this.jobsByNodeId.get(nodeId);
     if (!job) throw new Error(`no job for node ${nodeId}`);
-    const next = { ...job, ...patch };
-    this.jobs.set(nodeId, next);
-    this.emit({ type: "job", job: next });
-    return next;
+
+    const updated = { ...job, ...patch };
+    this.jobsByNodeId.set(nodeId, updated);
+    this.emit({ type: "job", job: updated });
+    return updated;
   }
 }

@@ -3,7 +3,6 @@ import { validateGraph, topoOrder, type WorkflowGraph } from "./graph";
 
 const at = { x: 0, y: 0 };
 
-// Scenario 1 + 2 + mandatory branching, all in one graph.
 function baseGraph(): WorkflowGraph {
   return {
     nodes: [
@@ -57,24 +56,25 @@ test("cycle is rejected", () => {
   if (!res.ok) expect(res.errors.join()).toContain("cycle");
 });
 
-test("type-mismatched edge is rejected", () => {
+test("a text output wired into an image input is rejected", () => {
   const g = baseGraph();
-  // prompt (text) -> result.in (image)
   g.edges.push({ id: "bad", source: "p1", sourceHandle: "out", target: "rA", targetHandle: "in" });
-  const res = validateGraph(g);
-  expect(res.ok).toBe(false);
+  expect(validateGraph(g).ok).toBe(false);
 });
 
-test("missing required input is rejected", () => {
+test("a generate node without a connected prompt is rejected", () => {
   const g = baseGraph();
-  g.edges = g.edges.filter((e) => e.id !== "e1"); // genA loses its prompt
+  g.edges = g.edges.filter((edge) => edge.id !== "e1");
+
   const res = validateGraph(g);
   expect(res.ok).toBe(false);
   if (!res.ok) expect(res.errors.join()).toContain("genA");
 });
 
 test("unknown node kind is rejected", () => {
-  const g = baseGraph() as unknown as { nodes: unknown[] };
-  g.nodes.push({ id: "x", kind: "frobnicate", position: at, data: {} });
-  expect(validateGraph(g).ok).toBe(false);
+  const withUnknownKind = {
+    ...baseGraph(),
+    nodes: [{ id: "x", kind: "frobnicate", position: at, data: {} }],
+  };
+  expect(validateGraph(withUnknownKind).ok).toBe(false);
 });

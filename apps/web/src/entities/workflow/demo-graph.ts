@@ -1,6 +1,5 @@
 import type { WorkflowGraph } from "@repo/contracts";
 
-/** The branching scenario from the brief, so the canvas is never empty on first load. */
 export const demoGraph: WorkflowGraph = {
   nodes: [
     {

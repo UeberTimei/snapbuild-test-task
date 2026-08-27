@@ -1,4 +1,4 @@
-import type { Preset } from "@repo/contracts";
+import { PresetList, type Preset } from "@repo/contracts";
 import { useEffect, useState } from "react";
 import { api } from "@/shared/api";
 
@@ -7,14 +7,19 @@ export function usePresets(): { presets: Preset[]; error: string | null } {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
+
     api
-      .get<Preset[]>("/presets")
-      .then((data) => !cancelled && setPresets(data))
-      .catch((err: Error) => !cancelled && setError(err.message));
-    return () => {
-      cancelled = true;
-    };
+      .get("/presets", PresetList)
+      .then((loaded) => {
+        if (!controller.signal.aborted) setPresets(loaded);
+      })
+      .catch((loadError: unknown) => {
+        if (controller.signal.aborted) return;
+        setError(loadError instanceof Error ? loadError.message : "could not load presets");
+      });
+
+    return () => controller.abort();
   }, []);
 
   return { presets, error };

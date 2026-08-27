@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { WorkflowGraph } from "./graph";
+import { NodeKind } from "./ports";
 
 export const JobStatus = z.enum(["idle", "queued", "running", "success", "error"]);
 export type JobStatus = z.infer<typeof JobStatus>;
@@ -10,7 +11,7 @@ export type RunStatus = z.infer<typeof RunStatus>;
 export const JobDto = z.object({
   id: z.string(),
   nodeId: z.string(),
-  kind: z.string(),
+  kind: NodeKind,
   status: JobStatus,
   attempts: z.number().int(),
   error: z.string().nullable(),
@@ -37,10 +38,16 @@ export const CreateRunRequest = z
     graph: WorkflowGraph.optional(),
     workflowId: z.string().optional(),
   })
-  .refine((v) => v.graph !== undefined || v.workflowId !== undefined, {
+  .refine((value) => value.graph !== undefined || value.workflowId !== undefined, {
     message: "either graph or workflowId is required",
   });
 export type CreateRunRequest = z.infer<typeof CreateRunRequest>;
 
 export const CreateRunResponse = z.object({ runId: z.string() });
 export type CreateRunResponse = z.infer<typeof CreateRunResponse>;
+
+export const RetryResponse = z.object({ ok: z.literal(true) });
+export type RetryResponse = z.infer<typeof RetryResponse>;
+
+export const AssetUploadResponse = z.object({ id: z.string() });
+export type AssetUploadResponse = z.infer<typeof AssetUploadResponse>;

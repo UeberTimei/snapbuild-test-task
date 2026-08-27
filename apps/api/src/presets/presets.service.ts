@@ -1,8 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { Preset } from "@repo/contracts";
+import { PresetReferences, type Preset } from "@repo/contracts";
 import { eq } from "drizzle-orm";
 import { DB, type Db } from "../db/db.module";
 import { presets } from "../db/schema";
+
+type PresetRow = typeof presets.$inferSelect;
 
 @Injectable()
 export class PresetsService {
@@ -18,12 +20,12 @@ export class PresetsService {
   }
 }
 
-function toPreset(row: typeof presets.$inferSelect): Preset {
+function toPreset(row: PresetRow): Preset {
   return {
     id: row.id,
     name: row.name,
     mainPrompt: row.mainPrompt,
     negativePrompt: row.negativePrompt,
-    references: JSON.parse(row.referencesJson) as string[],
+    references: PresetReferences.parse(JSON.parse(row.referencesJson)),
   };
 }

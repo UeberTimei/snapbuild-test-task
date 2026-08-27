@@ -6,32 +6,35 @@ import {
   type Connection,
   type Edge,
   type OnSelectionChangeParams,
+  type XYPosition,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback } from "react";
-import { NODE_ORDER, nodeMeta } from "@/entities/node";
+import { NODE_ORDER, nodeHint, nodeLabel } from "@/entities/node";
 import { useWorkflowStore } from "@/entities/workflow";
 import { isValidConnection } from "@/features/connect-nodes";
 import { Button } from "@/shared/ui";
 import { nodeTypes } from "./nodes";
 
-export function Canvas() {
-  const nodes = useWorkflowStore((s) => s.nodes);
-  const edges = useWorkflowStore((s) => s.edges);
-  const onNodesChange = useWorkflowStore((s) => s.onNodesChange);
-  const onEdgesChange = useWorkflowStore((s) => s.onEdgesChange);
-  const connect = useWorkflowStore((s) => s.connect);
-  const addNode = useWorkflowStore((s) => s.addNode);
-  const removeSelected = useWorkflowStore((s) => s.removeSelected);
-  const select = useWorkflowStore((s) => s.select);
+const DELETE_KEYS = ["Backspace", "Delete"];
 
-  const validate = useCallback(
+export function Canvas() {
+  const nodes = useWorkflowStore((state) => state.nodes);
+  const edges = useWorkflowStore((state) => state.edges);
+  const onNodesChange = useWorkflowStore((state) => state.onNodesChange);
+  const onEdgesChange = useWorkflowStore((state) => state.onEdgesChange);
+  const connect = useWorkflowStore((state) => state.connect);
+  const addNode = useWorkflowStore((state) => state.addNode);
+  const removeSelected = useWorkflowStore((state) => state.removeSelected);
+  const select = useWorkflowStore((state) => state.select);
+
+  const validateConnection = useCallback(
     (connection: Connection | Edge) =>
       isValidConnection(connection, useWorkflowStore.getState().nodes),
     [],
   );
 
-  const onSelectionChange = useCallback(
+  const handleSelectionChange = useCallback(
     ({ nodes: selectedNodes }: OnSelectionChangeParams) => select(selectedNodes[0]?.id ?? null),
     [select],
   );
@@ -40,12 +43,8 @@ export function Canvas() {
     <div className="canvas">
       <div className="palette">
         {NODE_ORDER.map((kind) => (
-          <Button
-            key={kind}
-            onClick={() => addNode(kind, randomSpot())}
-            title={nodeMeta(kind).hint}
-          >
-            + {nodeMeta(kind).label}
+          <Button key={kind} title={nodeHint(kind)} onClick={() => addNode(kind, spawnPosition())}>
+            + {nodeLabel(kind)}
           </Button>
         ))}
         <Button variant="danger" onClick={removeSelected}>
@@ -60,9 +59,9 @@ export function Canvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={connect}
-        onSelectionChange={onSelectionChange}
-        isValidConnection={validate}
-        deleteKeyCode={["Backspace", "Delete"]}
+        onSelectionChange={handleSelectionChange}
+        isValidConnection={validateConnection}
+        deleteKeyCode={DELETE_KEYS}
         fitView
       >
         <Background />
@@ -73,7 +72,6 @@ export function Canvas() {
   );
 }
 
-/** Drop new nodes somewhere visible without stacking them exactly on top of each other. */
-function randomSpot() {
+function spawnPosition(): XYPosition {
   return { x: 120 + Math.random() * 260, y: 80 + Math.random() * 300 };
 }
