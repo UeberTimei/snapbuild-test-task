@@ -12,9 +12,3 @@ export type Preset = z.infer<typeof Preset>;
 export const PresetList = z.array(Preset);
 
 export const PresetReferences = z.array(z.string());
-
-export interface ImageRequest {
-  prompt: string;
-  negativePrompt?: string;
-  references: string[];
-}

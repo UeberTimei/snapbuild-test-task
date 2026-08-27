@@ -3,8 +3,11 @@ import { useCallback, useEffect, useRef } from "react";
 import { useRunStore } from "@/entities/run";
 import { useWorkflowStore } from "@/entities/workflow";
 import { api } from "@/shared/api";
+import { ERROR_FALLBACK } from "@/shared/config";
+import { toErrorMessage } from "@/shared/lib";
+import type { UseRunWorkflowResult } from "./model.types";
 
-export function useRunWorkflow() {
+export function useRunWorkflow(): UseRunWorkflowResult {
   const streamRef = useRef<EventSource | null>(null);
 
   const closeStream = useCallback(() => {
@@ -46,7 +49,7 @@ export function useRunWorkflow() {
       startRun(runId);
       openStream(runId);
     } catch (error) {
-      fail(describe(error, "could not start the run"));
+      fail(toErrorMessage(error, ERROR_FALLBACK.run));
     }
   }, [closeStream, openStream]);
 
@@ -57,13 +60,9 @@ export function useRunWorkflow() {
     try {
       await api.post(`/runs/${runId}/jobs/${jobId}/retry`, RetryResponse);
     } catch (error) {
-      fail(describe(error, "retry failed"));
+      fail(toErrorMessage(error, ERROR_FALLBACK.retry));
     }
   }, []);
 
   return { start, retry };
-}
-
-function describe(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
 }

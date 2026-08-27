@@ -1,14 +1,17 @@
 import { nodeLabel } from "@/entities/node";
 import { usePresets } from "@/entities/preset";
-import {
-  selectSelectedNode,
-  useWorkflowStore,
-  type FlowNode,
-  type FlowNodeOf,
-} from "@/entities/workflow";
+import { selectSelectedNode, useWorkflowStore } from "@/entities/workflow";
 import { useUploadImage } from "@/features/upload-image";
 import { api } from "@/shared/api";
+import { IMAGE_ACCEPT } from "@/shared/config";
 import { Empty, Field, Panel } from "@/shared/ui";
+import type {
+  EditImageFieldsProps,
+  ImageInputFieldsProps,
+  NodeFieldsProps,
+  PresetFieldProps,
+  PromptFieldsProps,
+} from "./node-inspector.types";
 
 export function NodeInspector() {
   const node = useWorkflowStore(selectSelectedNode);
@@ -28,7 +31,7 @@ export function NodeInspector() {
   );
 }
 
-function NodeFields({ node }: { node: FlowNode }) {
+function NodeFields({ node }: NodeFieldsProps) {
   switch (node.type) {
     case "prompt":
       return <PromptFields node={node} />;
@@ -43,7 +46,7 @@ function NodeFields({ node }: { node: FlowNode }) {
   }
 }
 
-function PromptFields({ node }: { node: FlowNodeOf<"prompt"> }) {
+function PromptFields({ node }: PromptFieldsProps) {
   const setPromptText = useWorkflowStore((state) => state.setPromptText);
 
   return (
@@ -58,7 +61,7 @@ function PromptFields({ node }: { node: FlowNodeOf<"prompt"> }) {
   );
 }
 
-function EditImageFields({ node }: { node: FlowNodeOf<"editImage"> }) {
+function EditImageFields({ node }: EditImageFieldsProps) {
   const setEditInstruction = useWorkflowStore((state) => state.setEditInstruction);
 
   return (
@@ -76,7 +79,7 @@ function EditImageFields({ node }: { node: FlowNodeOf<"editImage"> }) {
   );
 }
 
-function ImageInputFields({ node }: { node: FlowNodeOf<"imageInput"> }) {
+function ImageInputFields({ node }: ImageInputFieldsProps) {
   const { upload, uploading, error } = useUploadImage(node.id);
   const { assetId } = node.data;
 
@@ -85,7 +88,7 @@ function ImageInputFields({ node }: { node: FlowNodeOf<"imageInput"> }) {
       <Field label="Source image">
         <input
           type="file"
-          accept="image/*"
+          accept={IMAGE_ACCEPT}
           disabled={uploading}
           onChange={(event) => {
             const file = event.target.files?.[0];
@@ -102,7 +105,7 @@ function ImageInputFields({ node }: { node: FlowNodeOf<"imageInput"> }) {
   );
 }
 
-function PresetField({ nodeId, presetId }: { nodeId: string; presetId: string | null }) {
+function PresetField({ nodeId, presetId }: PresetFieldProps) {
   const setPreset = useWorkflowStore((state) => state.setPreset);
   const { presets, error } = usePresets();
 

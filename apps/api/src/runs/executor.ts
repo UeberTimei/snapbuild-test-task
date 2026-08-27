@@ -1,37 +1,19 @@
 import { randomUUID } from "node:crypto";
 import {
-  NODE_KINDS,
   descendantsOf,
   findNode,
-  hasSingleInput,
+  producesJob,
   requiredInputsOf,
   type NodeOfKind,
   type Preset,
-  type RunStatus,
   type WorkflowNode,
 } from "@repo/contracts";
 import { buildImageRequest } from "../ai/request-builder";
-import type { ImageProvider } from "../ai/image-provider";
-import { RunState, type NodeOutput } from "./run-state";
-
-export interface AssetStore {
-  save(bytes: Uint8Array, mime: string, kind: "upload" | "generated"): Promise<string>;
-  bytes(id: string): Promise<Uint8Array | null>;
-}
-
-export interface PresetStore {
-  get(id: string): Preset | null;
-}
-
-export interface ExecutorDeps {
-  provider: ImageProvider;
-  assets: AssetStore;
-  presets: PresetStore;
-  concurrency?: number;
-  onJobSettled?: (run: RunState, nodeId: string) => void;
-}
-
-const DEFAULT_CONCURRENCY = Number(process.env.RUN_CONCURRENCY ?? 4);
+import { RUN_CONCURRENCY } from "../common/constants";
+import { toErrorMessage } from "../common/helpers";
+import { inputOf, settledStatus } from "./executor.helpers";
+import type { ExecutorDeps } from "./executor.types";
+import { RunState } from "./run-state";
 
 export class JobNotFoundError extends Error {}
 export class JobNotRetryableError extends Error {}
@@ -40,12 +22,13 @@ export class Executor {
   private readonly concurrency: number;
 
   constructor(private readonly deps: ExecutorDeps) {
-    this.concurrency = deps.concurrency ?? DEFAULT_CONCURRENCY;
+    this.concurrency = deps.concurrency ?? RUN_CONCURRENCY;
   }
 
   initJobs(run: RunState): void {
     for (const node of run.graph.nodes) {
-      if (!NODE_KINDS[node.kind].producesJob) continue;
+      if (!producesJob(node.kind)) continue;
+
       run.jobsByNodeId.set(node.id, {
         id: randomUUID(),
         nodeId: node.id,
@@ -126,7 +109,7 @@ export class Executor {
     for (const node of run.graph.nodes) {
       if (node.kind !== "result" || run.outputsByNodeId.has(node.id)) continue;
 
-      const upstream = this.inputOf(run, node, "in");
+      const upstream = inputOf(run, node, "in");
       if (upstream) run.outputsByNodeId.set(node.id, upstream);
     }
   }
@@ -141,25 +124,12 @@ export class Executor {
 
   private dependenciesResolved(run: RunState, nodeId: string): boolean {
     const node = this.requireNode(run, nodeId);
-    return requiredInputsOf(node.kind).every(
-      (port) => this.inputOf(run, node, port.id) !== undefined,
-    );
-  }
-
-  private inputOf(run: RunState, node: WorkflowNode, handle: string): NodeOutput | undefined {
-    const acceptsUnlabelledEdge = hasSingleInput(node.kind);
-    const edge = run.graph.edges.find(
-      (candidate) =>
-        candidate.target === node.id &&
-        (candidate.targetHandle === handle ||
-          (candidate.targetHandle === null && acceptsUnlabelledEdge)),
-    );
-    return edge ? run.outputsByNodeId.get(edge.source) : undefined;
+    return requiredInputsOf(node.kind).every((port) => inputOf(run, node, port.id) !== undefined);
   }
 
   private async runJob(run: RunState, nodeId: string): Promise<void> {
     const node = this.requireNode(run, nodeId);
-    const attempts = (run.jobsByNodeId.get(nodeId)?.attempts ?? 0) + 1;
+    const attempts = (run.jobFor(nodeId)?.attempts ?? 0) + 1;
     run.patchJob(nodeId, { status: "running", attempts, error: null });
 
     try {
@@ -167,7 +137,7 @@ export class Executor {
       run.outputsByNodeId.set(nodeId, { type: "image", assetId });
       run.patchJob(nodeId, { status: "success", outputAssetId: assetId });
     } catch (error) {
-      run.patchJob(nodeId, { status: "error", error: describe(error) });
+      run.patchJob(nodeId, { status: "error", error: toErrorMessage(error) });
     } finally {
       this.deps.onJobSettled?.(run, nodeId);
     }
@@ -182,12 +152,13 @@ export class Executor {
   private async generate(run: RunState, node: NodeOfKind<"generateImage">): Promise<string> {
     const prompt = this.requireTextInput(run, node, "prompt");
     const request = buildImageRequest(prompt, this.presetFor(node.data.presetId));
+
     const image = await this.deps.provider.generate(request);
     return this.deps.assets.save(image.bytes, image.mime, "generated");
   }
 
   private async edit(run: RunState, node: NodeOfKind<"editImage">): Promise<string> {
-    const source = this.inputOf(run, node, "image");
+    const source = inputOf(run, node, "image");
     if (source?.type !== "image") {
       throw new Error("edit image: the image input is not connected to an image");
     }
@@ -208,7 +179,7 @@ export class Executor {
   }
 
   private requireTextInput(run: RunState, node: WorkflowNode, handle: string): string {
-    const input = this.inputOf(run, node, handle);
+    const input = inputOf(run, node, handle);
     if (input?.type !== "text") {
       throw new Error(`node ${node.id}: input "${handle}" is not connected to text`);
     }
@@ -216,7 +187,7 @@ export class Executor {
   }
 
   private optionalTextInput(run: RunState, node: WorkflowNode, handle: string): string {
-    const input = this.inputOf(run, node, handle);
+    const input = inputOf(run, node, handle);
     return input?.type === "text" ? input.value : "";
   }
 
@@ -229,13 +200,4 @@ export class Executor {
     if (!node) throw new Error(`node ${nodeId} not found`);
     return node;
   }
-}
-
-function settledStatus(run: RunState): RunStatus {
-  const allSucceeded = run.jobs.every((job) => job.status === "success");
-  return allSucceeded ? "completed" : "failed";
-}
-
-function describe(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

@@ -1,17 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { JobDto, RunStatus, type RunDto, type RunEvent, type WorkflowGraph } from "@repo/contracts";
+import { RunStatus, type RunDto, type RunEvent, type WorkflowGraph } from "@repo/contracts";
 import { eq } from "drizzle-orm";
+import { IMAGE_PROVIDER } from "../ai/image-provider";
+import type { ImageProvider } from "../ai/ai.types";
 import { AssetsService } from "../assets/assets.service";
-import { IMAGE_PROVIDER, type ImageProvider } from "../ai/image-provider";
-import { PresetsService } from "../presets/presets.service";
-import { DB, type Db } from "../db/db.module";
+import { DB } from "../db/db.module";
+import type { Db, RunRow } from "../db/db.types";
 import { jobs as jobsTable, runs as runsTable } from "../db/schema";
+import { PresetsService } from "../presets/presets.service";
 import { Executor } from "./executor";
 import { RunState } from "./run-state";
-
-type RunRow = typeof runsTable.$inferSelect;
-type JobRow = typeof jobsTable.$inferSelect;
+import type { RunEventListener, Unsubscribe } from "./run-state.types";
+import { toJobDto } from "./runs.helpers";
 
 export class RunNotActiveError extends Error {}
 
@@ -50,7 +51,7 @@ export class RunsService {
     return row ? this.toRunDto(row) : null;
   }
 
-  subscribe(runId: string, onEvent: (event: RunEvent) => void): () => void {
+  subscribe(runId: string, onEvent: RunEventListener): Unsubscribe {
     const snapshot = this.get(runId);
     if (snapshot) onEvent({ type: "run", run: snapshot });
 
@@ -112,6 +113,7 @@ export class RunsService {
 
   private toRunDto(row: RunRow): RunDto {
     const jobRows = this.db.select().from(jobsTable).where(eq(jobsTable.runId, row.id)).all();
+
     return {
       id: row.id,
       status: RunStatus.parse(row.status),
@@ -119,16 +121,4 @@ export class RunsService {
       jobs: jobRows.map(toJobDto),
     };
   }
-}
-
-function toJobDto(row: JobRow): JobDto {
-  return JobDto.parse({
-    id: row.id,
-    nodeId: row.nodeId,
-    kind: row.kind,
-    status: row.status,
-    attempts: row.attempts,
-    error: row.error,
-    outputAssetId: row.outputAssetId,
-  });
 }

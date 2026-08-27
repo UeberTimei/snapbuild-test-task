@@ -1,56 +1,9 @@
-import {
-  addEdge,
-  applyEdgeChanges,
-  applyNodeChanges,
-  type Connection,
-  type EdgeChange,
-  type NodeChange,
-  type XYPosition,
-} from "@xyflow/react";
-import type { NodeKind, WorkflowGraph } from "@repo/contracts";
+import { addEdge, applyEdgeChanges, applyNodeChanges } from "@xyflow/react";
 import { create } from "zustand";
-import { defaultDataFor } from "@/entities/node";
-import { toFlowNode, toWorkflowNode, type FlowEdge, type FlowNode } from "./flow-node";
-
-interface WorkflowStore {
-  nodes: FlowNode[];
-  edges: FlowEdge[];
-  selectedNodeId: string | null;
-
-  onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
-  onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
-  connect: (connection: Connection) => void;
-  addNode: (kind: NodeKind, position: XYPosition) => void;
-  removeSelected: () => void;
-  select: (nodeId: string | null) => void;
-  replaceGraph: (graph: WorkflowGraph) => void;
-  toGraph: () => WorkflowGraph;
-
-  setPromptText: (nodeId: string, text: string) => void;
-  setSourceAsset: (nodeId: string, assetId: string) => void;
-  setPreset: (nodeId: string, presetId: string | null) => void;
-  setEditInstruction: (nodeId: string, instruction: string) => void;
-}
-
-let nodeCounter = 0;
-
-function createFlowNode(kind: NodeKind, position: XYPosition): FlowNode {
-  nodeCounter += 1;
-  const id = `${kind}-${nodeCounter}`;
-
-  switch (kind) {
-    case "prompt":
-      return { id, position, type: kind, data: defaultDataFor(kind) };
-    case "imageInput":
-      return { id, position, type: kind, data: defaultDataFor(kind) };
-    case "generateImage":
-      return { id, position, type: kind, data: defaultDataFor(kind) };
-    case "editImage":
-      return { id, position, type: kind, data: defaultDataFor(kind) };
-    case "result":
-      return { id, position, type: kind, data: defaultDataFor(kind) };
-  }
-}
+import { toFlowNode, toWorkflowEdge, toWorkflowNode } from "./flow-node.helpers";
+import type { FlowNode } from "./flow-node.types";
+import { createFlowNode, feedsAnotherPort, selectedNodeIds } from "./store.helpers";
+import type { WorkflowStore } from "./store.types";
 
 export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   nodes: [],
@@ -73,9 +26,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
 
   removeSelected: () =>
     set((state) => {
-      const removedIds = new Set(
-        state.nodes.filter((node) => node.selected).map((node) => node.id),
-      );
+      const removedIds = selectedNodeIds(state.nodes);
       return {
         nodes: state.nodes.filter((node) => !removedIds.has(node.id)),
         edges: state.edges.filter(
@@ -96,13 +47,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
 
   toGraph: () => ({
     nodes: get().nodes.map(toWorkflowNode),
-    edges: get().edges.map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      sourceHandle: edge.sourceHandle ?? null,
-      target: edge.target,
-      targetHandle: edge.targetHandle ?? null,
-    })),
+    edges: get().edges.map(toWorkflowEdge),
   }),
 
   setPromptText: (nodeId, text) =>
@@ -142,11 +87,6 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       ),
     })),
 }));
-
-function feedsAnotherPort(connection: Connection): (edge: FlowEdge) => boolean {
-  return (edge) =>
-    edge.target !== connection.target || edge.targetHandle !== connection.targetHandle;
-}
 
 export const selectSelectedNode = (state: WorkflowStore): FlowNode | undefined =>
   state.nodes.find((node) => node.id === state.selectedNodeId);

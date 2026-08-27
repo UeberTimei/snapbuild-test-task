@@ -1,8 +1,11 @@
 import { PresetList, type Preset } from "@repo/contracts";
 import { useEffect, useState } from "react";
 import { api } from "@/shared/api";
+import { ERROR_FALLBACK } from "@/shared/config";
+import { toErrorMessage } from "@/shared/lib";
+import type { UsePresetsResult } from "./model.types";
 
-export function usePresets(): { presets: Preset[]; error: string | null } {
+export function usePresets(): UsePresetsResult {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,8 +18,9 @@ export function usePresets(): { presets: Preset[]; error: string | null } {
         if (!controller.signal.aborted) setPresets(loaded);
       })
       .catch((loadError: unknown) => {
-        if (controller.signal.aborted) return;
-        setError(loadError instanceof Error ? loadError.message : "could not load presets");
+        if (!controller.signal.aborted) {
+          setError(toErrorMessage(loadError, ERROR_FALLBACK.presets));
+        }
       });
 
     return () => controller.abort();

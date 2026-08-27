@@ -2,8 +2,11 @@ import { AssetUploadResponse } from "@repo/contracts";
 import { useCallback, useState } from "react";
 import { useWorkflowStore } from "@/entities/workflow";
 import { api } from "@/shared/api";
+import { ERROR_FALLBACK, UPLOAD_FIELD_NAME } from "@/shared/config";
+import { toErrorMessage } from "@/shared/lib";
+import type { UseUploadImageResult } from "./model.types";
 
-export function useUploadImage(nodeId: string) {
+export function useUploadImage(nodeId: string): UseUploadImageResult {
   const setSourceAsset = useWorkflowStore((state) => state.setSourceAsset);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -14,13 +17,13 @@ export function useUploadImage(nodeId: string) {
       setError(null);
 
       const form = new FormData();
-      form.append("file", file);
+      form.append(UPLOAD_FIELD_NAME, file);
 
       try {
         const { id } = await api.postForm("/assets", AssetUploadResponse, form);
         setSourceAsset(nodeId, id);
       } catch (uploadError) {
-        setError(uploadError instanceof Error ? uploadError.message : "upload failed");
+        setError(toErrorMessage(uploadError, ERROR_FALLBACK.upload));
       } finally {
         setUploading(false);
       }

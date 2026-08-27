@@ -6,17 +6,17 @@ import {
   type Connection,
   type Edge,
   type OnSelectionChangeParams,
-  type XYPosition,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { NODE_KIND_ORDER } from "@repo/contracts";
 import { useCallback } from "react";
-import { NODE_ORDER, nodeHint, nodeLabel } from "@/entities/node";
+import { nodeHint, nodeLabel } from "@/entities/node";
 import { useWorkflowStore } from "@/entities/workflow";
 import { isValidConnection } from "@/features/connect-nodes";
+import { DELETE_KEY_CODES } from "@/shared/config";
 import { Button } from "@/shared/ui";
+import { spawnPosition } from "./canvas.helpers";
 import { nodeTypes } from "./nodes";
-
-const DELETE_KEYS = ["Backspace", "Delete"];
 
 export function Canvas() {
   const nodes = useWorkflowStore((state) => state.nodes);
@@ -42,7 +42,7 @@ export function Canvas() {
   return (
     <div className="canvas">
       <div className="palette">
-        {NODE_ORDER.map((kind) => (
+        {NODE_KIND_ORDER.map((kind) => (
           <Button key={kind} title={nodeHint(kind)} onClick={() => addNode(kind, spawnPosition())}>
             + {nodeLabel(kind)}
           </Button>
@@ -61,7 +61,7 @@ export function Canvas() {
         onConnect={connect}
         onSelectionChange={handleSelectionChange}
         isValidConnection={validateConnection}
-        deleteKeyCode={DELETE_KEYS}
+        deleteKeyCode={DELETE_KEY_CODES}
         fitView
       >
         <Background />
@@ -70,8 +70,4 @@ export function Canvas() {
       </ReactFlow>
     </div>
   );
-}
-
-function spawnPosition(): XYPosition {
-  return { x: 120 + Math.random() * 260, y: 80 + Math.random() * 300 };
 }

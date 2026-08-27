@@ -1,10 +1,6 @@
-import { portType, portsCompatible, type NodeKind } from "@repo/contracts";
+import { portType, portsCompatible } from "@repo/contracts";
 import type { Connection, Edge } from "@xyflow/react";
-
-export interface ConnectableNode {
-  id: string;
-  type: NodeKind;
-}
+import type { ConnectableNode } from "./model.types";
 
 export function isValidConnection(
   connection: Connection | Edge,

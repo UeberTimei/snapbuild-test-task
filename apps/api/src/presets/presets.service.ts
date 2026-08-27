@@ -1,10 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { PresetReferences, type Preset } from "@repo/contracts";
+import type { Preset } from "@repo/contracts";
 import { eq } from "drizzle-orm";
-import { DB, type Db } from "../db/db.module";
+import { DB } from "../db/db.module";
+import type { Db } from "../db/db.types";
 import { presets } from "../db/schema";
-
-type PresetRow = typeof presets.$inferSelect;
+import { toPreset } from "./presets.helpers";
 
 @Injectable()
 export class PresetsService {
@@ -18,14 +18,4 @@ export class PresetsService {
     const row = this.db.select().from(presets).where(eq(presets.id, id)).get();
     return row ? toPreset(row) : null;
   }
-}
-
-function toPreset(row: PresetRow): Preset {
-  return {
-    id: row.id,
-    name: row.name,
-    mainPrompt: row.mainPrompt,
-    negativePrompt: row.negativePrompt,
-    references: PresetReferences.parse(JSON.parse(row.referencesJson)),
-  };
 }

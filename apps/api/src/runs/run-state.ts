@@ -1,8 +1,5 @@
 import type { JobDto, RunDto, RunEvent, RunStatus, WorkflowGraph } from "@repo/contracts";
-
-export type NodeOutput = { type: "text"; value: string } | { type: "image"; assetId: string };
-
-export type RunEventListener = (event: RunEvent) => void;
+import type { NodeOutput, RunEventListener, Unsubscribe } from "./run-state.types";
 
 export class RunState {
   private readonly listeners = new Set<RunEventListener>();
@@ -37,7 +34,7 @@ export class RunState {
     return this.jobsByNodeId.get(nodeId);
   }
 
-  onEvent(listener: RunEventListener): () => void {
+  onEvent(listener: RunEventListener): Unsubscribe {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }

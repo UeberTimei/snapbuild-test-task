@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import type { ImageRequest, JobDto, WorkflowGraph } from "@repo/contracts";
-import type { EditRequest, GeneratedImage, ImageProvider } from "../ai/image-provider";
-import { Executor, type AssetStore, type PresetStore } from "./executor";
+import type { EditRequest, GeneratedImage, ImageProvider } from "../ai/ai.types";
+import { Executor } from "./executor";
+import type { AssetStore, PresetStore } from "./executor.types";
 import { RunState } from "./run-state";
 
 const at = { x: 0, y: 0 };

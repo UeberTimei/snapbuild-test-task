@@ -1,12 +1,10 @@
-import type { NodeKind } from "@repo/contracts";
-import type { NodeProps, NodeTypes } from "@xyflow/react";
+import type { NodeTypes } from "@xyflow/react";
 import { selectJob, useRunStore } from "@/entities/run";
-import { selectUpstreamNodeId, useWorkflowStore, type FlowNodeOf } from "@/entities/workflow";
+import { selectUpstreamNodeId, useWorkflowStore } from "@/entities/workflow";
 import { api } from "@/shared/api";
 import { Empty } from "@/shared/ui";
 import { NodeShell } from "./node-shell";
-
-type NodeComponentProps<K extends NodeKind> = NodeProps<FlowNodeOf<K>>;
+import type { NodeComponentProps } from "./nodes.types";
 
 function PromptNode({ id, data, selected }: NodeComponentProps<"prompt">) {
   return (

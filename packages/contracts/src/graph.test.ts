@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { validateGraph, topoOrder, type WorkflowGraph } from "./graph";
+import { validateGraph, type WorkflowGraph } from "./graph";
+import { topoOrder } from "./graph.helpers";
 
 const at = { x: 0, y: 0 };
 

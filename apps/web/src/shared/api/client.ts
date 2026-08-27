@@ -1,11 +1,6 @@
-import { z, type ZodType } from "zod";
-
-const BASE = import.meta.env.VITE_API_BASE ?? "/api";
-
-const ErrorBody = z.object({
-  message: z.string().optional(),
-  issues: z.array(z.string()).optional(),
-});
+import type { ZodType } from "zod";
+import { API_BASE, CONTENT_TYPE_JSON } from "@/shared/config";
+import { readErrorMessage } from "./client.helpers";
 
 export class ApiError extends Error {
   constructor(
@@ -18,24 +13,10 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, schema: ZodType<T>, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE}${path}`, init);
-  if (!response.ok) throw new ApiError(await errorMessage(response), response.status);
+  const response = await fetch(`${API_BASE}${path}`, init);
+  if (!response.ok) throw new ApiError(await readErrorMessage(response), response.status);
 
   return schema.parse(await response.json());
-}
-
-async function errorMessage(response: Response): Promise<string> {
-  const body = await response
-    .json()
-    .then((payload: unknown) => ErrorBody.safeParse(payload))
-    .catch(() => null);
-
-  if (body?.success) {
-    const { issues, message } = body.data;
-    if (issues && issues.length > 0) return issues.join("; ");
-    if (message) return message;
-  }
-  return `request failed with ${response.status}`;
 }
 
 export const api = {
@@ -44,14 +25,14 @@ export const api = {
   post: <T>(path: string, schema: ZodType<T>, body?: unknown) =>
     request(path, schema, {
       method: "POST",
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      headers: body === undefined ? undefined : { "Content-Type": CONTENT_TYPE_JSON },
       body: body === undefined ? undefined : JSON.stringify(body),
     }),
 
   postForm: <T>(path: string, schema: ZodType<T>, form: FormData) =>
     request(path, schema, { method: "POST", body: form }),
 
-  assetUrl: (assetId: string) => `${BASE}/assets/${assetId}`,
+  assetUrl: (assetId: string) => `${API_BASE}/assets/${assetId}`,
 
-  eventsUrl: (path: string) => `${BASE}${path}`,
+  eventsUrl: (path: string) => `${API_BASE}${path}`,
 };

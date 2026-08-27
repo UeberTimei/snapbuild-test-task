@@ -1,22 +1,10 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
-
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "ghost" | "danger";
-};
+import type { BadgeProps, ButtonProps, EmptyProps, FieldProps, PanelProps } from "./ui.types";
 
 export function Button({ variant = "ghost", className = "", ...props }: ButtonProps) {
   return <button className={`btn btn--${variant} ${className}`} {...props} />;
 }
 
-export function Panel({
-  title,
-  children,
-  actions,
-}: {
-  title: string;
-  children: ReactNode;
-  actions?: ReactNode;
-}) {
+export function Panel({ title, children, actions }: PanelProps) {
   return (
     <section className="panel">
       <header className="panel__head">
@@ -28,7 +16,7 @@ export function Panel({
   );
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({ label, children }: FieldProps) {
   return (
     <label className="field">
       <span className="field__label">{label}</span>
@@ -37,10 +25,10 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-export function Badge({ tone, children }: { tone: string; children: ReactNode }) {
+export function Badge({ tone, children }: BadgeProps) {
   return <span className={`badge badge--${tone}`}>{children}</span>;
 }
 
-export function Empty({ children }: { children: ReactNode }) {
+export function Empty({ children }: EmptyProps) {
   return <p className="empty">{children}</p>;
 }

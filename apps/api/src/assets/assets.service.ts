@@ -3,25 +3,16 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Inject, Injectable } from "@nestjs/common";
 import { eq } from "drizzle-orm";
-import { DB, type Db } from "../db/db.module";
+import { STORAGE_DIR } from "../common/constants";
+import type { AssetKind, StoredAsset } from "../common/types";
+import { DB } from "../db/db.module";
+import type { Db } from "../db/db.types";
 import { assets } from "../db/schema";
-
-export type AssetKind = "upload" | "generated";
-
-export interface StoredAsset {
-  path: string;
-  mime: string;
-}
-
-const EXTENSION_BY_MIME: Record<string, string> = {
-  "image/png": ".png",
-  "image/jpeg": ".jpg",
-  "image/webp": ".webp",
-};
+import { fileNameFor } from "./assets.helpers";
 
 @Injectable()
 export class AssetsService {
-  private readonly directory = process.env.STORAGE_DIR ?? join(process.cwd(), "storage");
+  private readonly directory = STORAGE_DIR;
 
   constructor(@Inject(DB) private readonly db: Db) {
     mkdirSync(this.directory, { recursive: true });
@@ -29,7 +20,7 @@ export class AssetsService {
 
   async save(bytes: Uint8Array, mime: string, kind: AssetKind): Promise<string> {
     const id = randomUUID();
-    const path = join(this.directory, id + (EXTENSION_BY_MIME[mime] ?? ".bin"));
+    const path = join(this.directory, fileNameFor(id, mime));
 
     await Bun.write(path, bytes);
     this.db.insert(assets).values({ id, path, mime, kind, createdAt: Date.now() }).run();

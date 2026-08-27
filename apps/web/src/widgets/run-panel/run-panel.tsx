@@ -1,10 +1,10 @@
-import type { JobDto } from "@repo/contracts";
-import { jobTone, selectIsRunning, useRunStore } from "@/entities/run";
 import { nodeLabel } from "@/entities/node";
+import { jobTone, selectIsRunning, useRunStore } from "@/entities/run";
 import { demoGraph, useWorkflowStore } from "@/entities/workflow";
 import { useRunWorkflow } from "@/features/run-workflow";
 import { api } from "@/shared/api";
 import { Badge, Button, Empty, Panel } from "@/shared/ui";
+import type { JobCardProps } from "./run-panel.types";
 
 export function RunPanel() {
   const { start, retry } = useRunWorkflow();
@@ -50,7 +50,7 @@ export function RunPanel() {
   );
 }
 
-function JobCard({ job, onRetry }: { job: JobDto; onRetry: () => void }) {
+function JobCard({ job, onRetry }: JobCardProps) {
   return (
     <li className="job">
       <div className="job__head">

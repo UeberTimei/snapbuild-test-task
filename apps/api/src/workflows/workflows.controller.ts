@@ -1,11 +1,7 @@
 import { Body, Controller, Get, NotFoundException, Param, Post, Put } from "@nestjs/common";
-import { WorkflowGraph } from "@repo/contracts";
-import { z } from "zod";
 import { ZodBody } from "../common/zod-body.decorator";
-import { WorkflowsService, type WorkflowRecord } from "./workflows.service";
-
-const SaveWorkflowRequest = z.object({ name: z.string().min(1), graph: WorkflowGraph });
-type SaveWorkflowRequest = z.infer<typeof SaveWorkflowRequest>;
+import { WorkflowsService } from "./workflows.service";
+import { SaveWorkflowRequest, type WorkflowRecord } from "./workflows.types";
 
 @Controller("workflows")
 export class WorkflowsController {

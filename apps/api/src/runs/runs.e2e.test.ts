@@ -11,7 +11,8 @@ import {
   type WorkflowGraph,
 } from "@repo/contracts";
 import { AiModule } from "../ai/ai.module";
-import { IMAGE_PROVIDER, type GeneratedImage, type ImageProvider } from "../ai/image-provider";
+import { IMAGE_PROVIDER } from "../ai/image-provider";
+import type { GeneratedImage, ImageProvider } from "../ai/ai.types";
 import { AssetsModule } from "../assets/assets.module";
 import { DbModule } from "../db/db.module";
 import { PresetsModule } from "../presets/presets.module";

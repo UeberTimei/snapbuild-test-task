@@ -1,14 +1,9 @@
-import type { NodeDataByKind, NodeKind, WorkflowNode } from "@repo/contracts";
-import type { Edge, Node } from "@xyflow/react";
-
-export type FlowNodeOf<K extends NodeKind> = Node<NodeDataByKind[K], K>;
-
-export type FlowNode = { [K in NodeKind]: FlowNodeOf<K> }[NodeKind];
-
-export type FlowEdge = Edge;
+import type { WorkflowEdge, WorkflowNode } from "@repo/contracts";
+import type { FlowEdge, FlowNode } from "./flow-node.types";
 
 export function toFlowNode(node: WorkflowNode): FlowNode {
   const { id, position } = node;
+
   switch (node.kind) {
     case "prompt":
       return { id, position, type: node.kind, data: node.data };
@@ -25,6 +20,7 @@ export function toFlowNode(node: WorkflowNode): FlowNode {
 
 export function toWorkflowNode(node: FlowNode): WorkflowNode {
   const { id, position } = node;
+
   switch (node.type) {
     case "prompt":
       return { id, position, kind: node.type, data: node.data };
@@ -37,4 +33,14 @@ export function toWorkflowNode(node: FlowNode): WorkflowNode {
     case "result":
       return { id, position, kind: node.type, data: node.data };
   }
+}
+
+export function toWorkflowEdge(edge: FlowEdge): WorkflowEdge {
+  return {
+    id: edge.id,
+    source: edge.source,
+    sourceHandle: edge.sourceHandle ?? null,
+    target: edge.target,
+    targetHandle: edge.targetHandle ?? null,
+  };
 }

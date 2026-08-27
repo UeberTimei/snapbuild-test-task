@@ -1,16 +1,10 @@
-import type { NodeKind, PortDef } from "@repo/contracts";
-import { Handle, Position, type HandleType } from "@xyflow/react";
-import type { ReactNode } from "react";
+import { inputsOf, outputsOf } from "@repo/contracts";
+import { Handle, Position } from "@xyflow/react";
+import { nodeLabel } from "@/entities/node";
 import { jobTone, selectJob, useRunStore } from "@/entities/run";
-import { inputsOf, nodeLabel, outputsOf } from "@/entities/node";
+import { evenlySpacedPercent } from "@/shared/lib";
 import { Badge } from "@/shared/ui";
-
-interface NodeShellProps {
-  id: string;
-  kind: NodeKind;
-  selected?: boolean;
-  children?: ReactNode;
-}
+import type { NodeShellProps, PortHandlesProps } from "./node-shell.types";
 
 export function NodeShell({ id, kind, selected, children }: NodeShellProps) {
   const job = useRunStore(selectJob(id));
@@ -31,12 +25,6 @@ export function NodeShell({ id, kind, selected, children }: NodeShellProps) {
   );
 }
 
-interface PortHandlesProps {
-  ports: PortDef[];
-  type: HandleType;
-  position: Position;
-}
-
 function PortHandles({ ports, type, position }: PortHandlesProps) {
   return ports.map((port, index) => (
     <Handle
@@ -45,11 +33,7 @@ function PortHandles({ ports, type, position }: PortHandlesProps) {
       type={type}
       position={position}
       className={`handle handle--${port.type}`}
-      style={{ top: evenlySpaced(index, ports.length) }}
+      style={{ top: evenlySpacedPercent(index, ports.length) }}
     />
   ));
-}
-
-function evenlySpaced(index: number, total: number): string {
-  return `${((index + 1) / (total + 1)) * 100}%`;
 }
