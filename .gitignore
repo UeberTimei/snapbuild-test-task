@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.turbo/
+*.local
+apps/api/.env
+apps/api/storage/
+apps/api/*.sqlite
+apps/api/drizzle/meta/_journal.json.bak
+.DS_Store
+test-storage/
+test-*.sqlite*
+app.sqlite*
+docs/superpowers/
