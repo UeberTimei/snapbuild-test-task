@@ -3,13 +3,7 @@ import { z } from "zod";
 export const PortType = z.enum(["text", "image"]);
 export type PortType = z.infer<typeof PortType>;
 
-export const NodeKind = z.enum([
-  "prompt",
-  "imageInput",
-  "generateImage",
-  "editImage",
-  "result",
-]);
+export const NodeKind = z.enum(["prompt", "imageInput", "generateImage", "editImage", "result"]);
 export type NodeKind = z.infer<typeof NodeKind>;
 
 export interface PortDef {
@@ -69,10 +63,7 @@ export const NODE_KINDS: Record<NodeKind, NodeKindDef> = {
   },
 };
 
-function resolveHandle(
-  ports: PortDef[],
-  handle: string | null | undefined,
-): PortDef | undefined {
+function resolveHandle(ports: PortDef[], handle: string | null | undefined): PortDef | undefined {
   if (ports.length === 0) return undefined;
   if (handle == null) return ports[0];
   return ports.find((p) => p.id === handle);

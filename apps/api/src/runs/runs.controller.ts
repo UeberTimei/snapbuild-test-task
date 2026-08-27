@@ -8,7 +8,12 @@ import {
   Post,
   Sse,
 } from "@nestjs/common";
-import { CreateRunRequest, type CreateRunResponse, type RunDto, type RunEvent } from "@repo/contracts";
+import {
+  CreateRunRequest,
+  type CreateRunResponse,
+  type RunDto,
+  type RunEvent,
+} from "@repo/contracts";
 import { Observable } from "rxjs";
 import { WorkflowsService } from "../workflows/workflows.service";
 import { RunsService } from "./runs.service";

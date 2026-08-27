@@ -1,10 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-  NODE_KINDS,
-  type Preset,
-  type WorkflowGraph,
-  type WorkflowNode,
-} from "@repo/contracts";
+import { NODE_KINDS, type Preset, type WorkflowGraph, type WorkflowNode } from "@repo/contracts";
 import { buildImageRequest } from "../ai/request-builder";
 import type { ImageProvider } from "../ai/image-provider";
 import { RunState, type NodeOutput } from "./run-state";
@@ -73,7 +68,10 @@ export class Executor {
         const nodeId = this.nextReadyJob(run, inFlight);
         if (!nodeId) break;
         run.patchJob(nodeId, { status: "queued" });
-        inFlight.set(nodeId, this.runJob(run, nodeId).finally(() => inFlight.delete(nodeId)));
+        inFlight.set(
+          nodeId,
+          this.runJob(run, nodeId).finally(() => inFlight.delete(nodeId)),
+        );
       }
 
       if (inFlight.size === 0) break;
@@ -92,7 +90,8 @@ export class Executor {
   prepareRetry(run: RunState, jobId: string): void {
     const job = [...run.jobs.values()].find((j) => j.id === jobId);
     if (!job) throw new Error(`job ${jobId} not found`);
-    if (job.status !== "error") throw new Error(`job ${jobId} is ${job.status}, only failed jobs can be retried`);
+    if (job.status !== "error")
+      throw new Error(`job ${jobId} is ${job.status}, only failed jobs can be retried`);
 
     for (const nodeId of this.downstreamOf(run.graph, job.nodeId)) {
       run.outputs.delete(nodeId);
@@ -181,7 +180,8 @@ export class Executor {
 
     if (node.kind === "editImage") {
       const source = this.inputOf(run, node.id, "image");
-      if (source?.type !== "image") throw new Error("edit image: no source image on the image input");
+      if (source?.type !== "image")
+        throw new Error("edit image: no source image on the image input");
       const bytes = await this.deps.assets.bytes(source.assetId);
       if (!bytes) throw new Error(`edit image: asset ${source.assetId} not found`);
       const extraPrompt = this.optionalTextInput(run, node.id, "prompt");
@@ -199,7 +199,8 @@ export class Executor {
 
   private textInput(run: RunState, nodeId: string, handle: string): string {
     const input = this.inputOf(run, nodeId, handle);
-    if (input?.type !== "text") throw new Error(`node ${nodeId}: input "${handle}" is not connected to text`);
+    if (input?.type !== "text")
+      throw new Error(`node ${nodeId}: input "${handle}" is not connected to text`);
     return input.value;
   }
 

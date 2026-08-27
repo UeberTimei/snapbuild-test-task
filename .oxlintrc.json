@@ -8,49 +8,122 @@
   "ignorePatterns": ["dist", "node_modules", ".turbo", "apps/api/drizzle"],
   "rules": {
     "no-console": "off",
-    "eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
+    "eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "react/react-in-jsx-scope": "off",
+    "import/no-unassigned-import": "off",
+    "typescript/no-extraneous-class": ["warn", { "allowWithDecorator": true }]
   },
   "overrides": [
     {
       "files": ["apps/web/src/shared/**"],
       "rules": {
-        "no-restricted-imports": ["error", { "patterns": [
-          { "group": ["**/app/*", "**/pages/*", "**/widgets/*", "**/features/*", "**/entities/*", "@/app/*", "@/pages/*", "@/widgets/*", "@/features/*", "@/entities/*"], "message": "FSD: shared may not import upper layers" }
-        ]}]
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/app/*",
+                  "**/pages/*",
+                  "**/widgets/*",
+                  "**/features/*",
+                  "**/entities/*",
+                  "@/app/*",
+                  "@/pages/*",
+                  "@/widgets/*",
+                  "@/features/*",
+                  "@/entities/*"
+                ],
+                "message": "FSD: shared may not import upper layers"
+              }
+            ]
+          }
+        ]
       }
     },
     {
       "files": ["apps/web/src/entities/**"],
       "rules": {
-        "no-restricted-imports": ["error", { "patterns": [
-          { "group": ["**/app/*", "**/pages/*", "**/widgets/*", "**/features/*", "@/app/*", "@/pages/*", "@/widgets/*", "@/features/*"], "message": "FSD: entities may not import app/pages/widgets/features" }
-        ]}]
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/app/*",
+                  "**/pages/*",
+                  "**/widgets/*",
+                  "**/features/*",
+                  "@/app/*",
+                  "@/pages/*",
+                  "@/widgets/*",
+                  "@/features/*"
+                ],
+                "message": "FSD: entities may not import app/pages/widgets/features"
+              }
+            ]
+          }
+        ]
       }
     },
     {
       "files": ["apps/web/src/features/**"],
       "rules": {
-        "no-restricted-imports": ["error", { "patterns": [
-          { "group": ["**/app/*", "**/pages/*", "**/widgets/*", "@/app/*", "@/pages/*", "@/widgets/*"], "message": "FSD: features may not import app/pages/widgets" },
-          { "group": ["@/features/*/*"], "message": "FSD: import features via their public API (index.ts), no cross-feature deep imports" }
-        ]}]
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/app/*",
+                  "**/pages/*",
+                  "**/widgets/*",
+                  "@/app/*",
+                  "@/pages/*",
+                  "@/widgets/*"
+                ],
+                "message": "FSD: features may not import app/pages/widgets"
+              },
+              {
+                "group": ["@/features/*/*"],
+                "message": "FSD: import features via their public API (index.ts), no cross-feature deep imports"
+              }
+            ]
+          }
+        ]
       }
     },
     {
       "files": ["apps/web/src/widgets/**"],
       "rules": {
-        "no-restricted-imports": ["error", { "patterns": [
-          { "group": ["**/app/*", "**/pages/*", "@/app/*", "@/pages/*"], "message": "FSD: widgets may not import app/pages" },
-          { "group": ["@/widgets/*/*"], "message": "FSD: import widgets via their public API (index.ts)" }
-        ]}]
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/app/*", "**/pages/*", "@/app/*", "@/pages/*"],
+                "message": "FSD: widgets may not import app/pages"
+              },
+              {
+                "group": ["@/widgets/*/*"],
+                "message": "FSD: import widgets via their public API (index.ts)"
+              }
+            ]
+          }
+        ]
       }
     },
     {
       "files": ["apps/web/src/pages/**"],
       "rules": {
-        "no-restricted-imports": ["error", { "patterns": [
-          { "group": ["**/app/*", "@/app/*"], "message": "FSD: pages may not import app" }
-        ]}]
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["**/app/*", "@/app/*"], "message": "FSD: pages may not import app" }
+            ]
+          }
+        ]
       }
     }
   ]

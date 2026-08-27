@@ -42,7 +42,10 @@ export class RunsService {
       })
       .run();
     for (const job of run.jobs.values()) {
-      this.db.insert(jobsTable).values({ ...job, runId: run.id }).run();
+      this.db
+        .insert(jobsTable)
+        .values({ ...job, runId: run.id })
+        .run();
     }
     run.events.on("event", (event: RunEvent) => this.persist(run.id, event));
 
@@ -94,10 +97,18 @@ export class RunsService {
 
   private persist(runId: string, event: RunEvent): void {
     if (event.type === "run") {
-      this.db.update(runsTable).set({ status: event.run.status }).where(eq(runsTable.id, runId)).run();
+      this.db
+        .update(runsTable)
+        .set({ status: event.run.status })
+        .where(eq(runsTable.id, runId))
+        .run();
       return;
     }
     const { id, status, attempts, error, outputAssetId } = event.job;
-    this.db.update(jobsTable).set({ status, attempts, error, outputAssetId }).where(eq(jobsTable.id, id)).run();
+    this.db
+      .update(jobsTable)
+      .set({ status, attempts, error, outputAssetId })
+      .where(eq(jobsTable.id, id))
+      .run();
   }
 }

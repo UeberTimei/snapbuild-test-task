@@ -36,10 +36,10 @@ export function useRunWorkflow() {
 
       const stream = new EventSource(api.eventsUrl(`/runs/${runId}/events`));
       source.current = stream;
-      stream.onmessage = (message) => apply(JSON.parse(message.data) as RunEvent);
+      stream.addEventListener("message", (message) => apply(JSON.parse(message.data) as RunEvent));
       // EventSource surfaces both a server close and a transport failure here;
       // the run store already holds the last known state, so just stop retrying.
-      stream.onerror = () => close();
+      stream.addEventListener("error", () => close());
     } catch (err) {
       fail(err instanceof Error ? err.message : "could not start the run");
     }

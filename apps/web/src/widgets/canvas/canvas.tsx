@@ -26,7 +26,8 @@ export function Canvas() {
   const select = useWorkflowStore((s) => s.select);
 
   const validate = useCallback(
-    (connection: Connection | Edge) => isValidConnection(connection, useWorkflowStore.getState().nodes),
+    (connection: Connection | Edge) =>
+      isValidConnection(connection, useWorkflowStore.getState().nodes),
     [],
   );
 

@@ -14,9 +14,24 @@ export const ResultData = z.object({});
 
 export const WorkflowNode = z.discriminatedUnion("kind", [
   z.object({ id: z.string(), kind: z.literal("prompt"), position: Position, data: PromptData }),
-  z.object({ id: z.string(), kind: z.literal("imageInput"), position: Position, data: ImageInputData }),
-  z.object({ id: z.string(), kind: z.literal("generateImage"), position: Position, data: GenerateImageData }),
-  z.object({ id: z.string(), kind: z.literal("editImage"), position: Position, data: EditImageData }),
+  z.object({
+    id: z.string(),
+    kind: z.literal("imageInput"),
+    position: Position,
+    data: ImageInputData,
+  }),
+  z.object({
+    id: z.string(),
+    kind: z.literal("generateImage"),
+    position: Position,
+    data: GenerateImageData,
+  }),
+  z.object({
+    id: z.string(),
+    kind: z.literal("editImage"),
+    position: Position,
+    data: EditImageData,
+  }),
   z.object({ id: z.string(), kind: z.literal("result"), position: Position, data: ResultData }),
 ]);
 export type WorkflowNode = z.infer<typeof WorkflowNode>;
@@ -36,15 +51,16 @@ export const WorkflowGraph = z.object({
 });
 export type WorkflowGraph = z.infer<typeof WorkflowGraph>;
 
-export type GraphValidation =
-  | { ok: true }
-  | { ok: false; errors: string[] };
+export type GraphValidation = { ok: true } | { ok: false; errors: string[] };
 
 /** Structural + semantic validation beyond what the zod schema covers. */
 export function validateGraph(input: unknown): GraphValidation {
   const parsed = WorkflowGraph.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, errors: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`) };
+    return {
+      ok: false,
+      errors: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+    };
   }
   const graph = parsed.data;
   const errors: string[] = [];
@@ -55,8 +71,14 @@ export function validateGraph(input: unknown): GraphValidation {
   for (const edge of graph.edges) {
     const src = nodes.get(edge.source);
     const dst = nodes.get(edge.target);
-    if (!src) { errors.push(`edge ${edge.id}: unknown source node ${edge.source}`); continue; }
-    if (!dst) { errors.push(`edge ${edge.id}: unknown target node ${edge.target}`); continue; }
+    if (!src) {
+      errors.push(`edge ${edge.id}: unknown source node ${edge.source}`);
+      continue;
+    }
+    if (!dst) {
+      errors.push(`edge ${edge.id}: unknown target node ${edge.target}`);
+      continue;
+    }
     const srcType = portType(src.kind, "outputs", edge.sourceHandle);
     const dstType = portType(dst.kind, "inputs", edge.targetHandle);
     if (!portsCompatible(srcType, dstType)) {
@@ -64,7 +86,10 @@ export function validateGraph(input: unknown): GraphValidation {
       continue;
     }
     const key = `${edge.target}:${edge.targetHandle ?? NODE_KINDS[dst.kind].inputs[0]?.id}`;
-    if (filledInputs.has(key)) errors.push(`node ${edge.target}: input port ${edge.targetHandle} has multiple inbound edges`);
+    if (filledInputs.has(key))
+      errors.push(
+        `node ${edge.target}: input port ${edge.targetHandle} has multiple inbound edges`,
+      );
     filledInputs.add(key);
   }
 
@@ -106,7 +131,10 @@ function hasCycle(graph: WorkflowGraph): boolean {
 export function topoOrder(graph: WorkflowGraph): string[] {
   const indegree = new Map<string, number>();
   const adj = new Map<string, string[]>();
-  for (const n of graph.nodes) { indegree.set(n.id, 0); adj.set(n.id, []); }
+  for (const n of graph.nodes) {
+    indegree.set(n.id, 0);
+    adj.set(n.id, []);
+  }
   for (const e of graph.edges) {
     adj.get(e.source)?.push(e.target);
     indegree.set(e.target, (indegree.get(e.target) ?? 0) + 1);

@@ -37,7 +37,13 @@ const META: Record<NodeKind, NodeMeta> = {
   },
 };
 
-export const NODE_ORDER: NodeKind[] = ["prompt", "imageInput", "generateImage", "editImage", "result"];
+export const NODE_ORDER: NodeKind[] = [
+  "prompt",
+  "imageInput",
+  "generateImage",
+  "editImage",
+  "result",
+];
 
 export function nodeMeta(kind: NodeKind): NodeMeta {
   return META[kind];

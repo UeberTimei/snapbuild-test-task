@@ -75,9 +75,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       const doomed = new Set(s.nodes.filter((n) => n.selected).map((n) => n.id));
       return {
         nodes: s.nodes.filter((n) => !doomed.has(n.id)),
-        edges: s.edges.filter(
-          (e) => !e.selected && !doomed.has(e.source) && !doomed.has(e.target),
-        ),
+        edges: s.edges.filter((e) => !e.selected && !doomed.has(e.source) && !doomed.has(e.target)),
         selectedNodeId: doomed.has(s.selectedNodeId ?? "") ? null : s.selectedNodeId,
       };
     }),

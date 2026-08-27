@@ -70,7 +70,12 @@ function chainedGraph(): WorkflowGraph {
     nodes: [
       { id: "p", kind: "prompt", position: at, data: { text: "a cat" } },
       { id: "gen", kind: "generateImage", position: at, data: { presetId: null } },
-      { id: "edit", kind: "editImage", position: at, data: { presetId: null, instruction: "make it blue" } },
+      {
+        id: "edit",
+        kind: "editImage",
+        position: at,
+        data: { presetId: null, instruction: "make it blue" },
+      },
       { id: "r", kind: "result", position: at, data: {} },
     ],
     edges: [
@@ -177,7 +182,9 @@ test("run emits job and run events for the whole lifecycle", async () => {
   executor.initJobs(run);
 
   const seen: string[] = [];
-  run.events.on("event", (e) => seen.push(e.type === "run" ? `run:${e.run.status}` : `job:${e.job.status}`));
+  run.events.on("event", (e) =>
+    seen.push(e.type === "run" ? `run:${e.run.status}` : `job:${e.job.status}`),
+  );
   await executor.run(run);
 
   expect(seen).toContain("run:running");

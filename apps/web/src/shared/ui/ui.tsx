@@ -8,7 +8,15 @@ export function Button({ variant = "ghost", className = "", ...props }: ButtonPr
   return <button className={`btn btn--${variant} ${className}`} {...props} />;
 }
 
-export function Panel({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {
+export function Panel({
+  title,
+  children,
+  actions,
+}: {
+  title: string;
+  children: ReactNode;
+  actions?: ReactNode;
+}) {
   return (
     <section className="panel">
       <header className="panel__head">

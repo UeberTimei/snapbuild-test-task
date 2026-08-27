@@ -84,7 +84,10 @@ test("POST /runs runs the branching graph to completion and streams SSE", async 
   expect(statuses).toContain("run:completed");
   expect(statuses.filter((s) => s === "job:success")).toHaveLength(2);
 
-  const final = await (await fetch(`${baseUrl}/runs/${runId}`)).json() as { status: string; jobs: { outputAssetId: string | null }[] };
+  const final = (await (await fetch(`${baseUrl}/runs/${runId}`)).json()) as {
+    status: string;
+    jobs: { outputAssetId: string | null }[];
+  };
   expect(final.status).toBe("completed");
   const assetId = final.jobs[0]?.outputAssetId;
   expect(assetId).toBeTruthy();

@@ -2,9 +2,7 @@ import { EventEmitter } from "node:events";
 import type { JobDto, RunDto, RunEvent, RunStatus, WorkflowGraph } from "@repo/contracts";
 
 /** What a resolved node hands to its downstream nodes. */
-export type NodeOutput =
-  | { type: "text"; value: string }
-  | { type: "image"; assetId: string };
+export type NodeOutput = { type: "text"; value: string } | { type: "image"; assetId: string };
 
 export class RunState {
   readonly events = new EventEmitter();

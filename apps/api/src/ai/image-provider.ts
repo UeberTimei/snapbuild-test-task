@@ -18,7 +18,10 @@ export interface ImageProvider {
 export const IMAGE_PROVIDER = Symbol("IMAGE_PROVIDER");
 
 export class ImageProviderError extends Error {
-  constructor(message: string, readonly cause?: unknown) {
+  constructor(
+    message: string,
+    readonly cause?: unknown,
+  ) {
     super(message);
     this.name = "ImageProviderError";
   }

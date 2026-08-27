@@ -13,7 +13,12 @@ function baseGraph(): WorkflowGraph {
       { id: "rA", kind: "result", position: at, data: {} },
       { id: "rB", kind: "result", position: at, data: {} },
       { id: "img1", kind: "imageInput", position: at, data: { assetId: "asset-1" } },
-      { id: "edit1", kind: "editImage", position: at, data: { presetId: null, instruction: "make it blue" } },
+      {
+        id: "edit1",
+        kind: "editImage",
+        position: at,
+        data: { presetId: null, instruction: "make it blue" },
+      },
       { id: "rC", kind: "result", position: at, data: {} },
     ],
     edges: [
@@ -40,7 +45,13 @@ test("branches are independent in topo order", () => {
 
 test("cycle is rejected", () => {
   const g = baseGraph();
-  g.edges.push({ id: "cy", source: "rA", sourceHandle: "in", target: "genA", targetHandle: "prompt" });
+  g.edges.push({
+    id: "cy",
+    source: "rA",
+    sourceHandle: "in",
+    target: "genA",
+    targetHandle: "prompt",
+  });
   const res = validateGraph(g);
   expect(res.ok).toBe(false);
   if (!res.ok) expect(res.errors.join()).toContain("cycle");
