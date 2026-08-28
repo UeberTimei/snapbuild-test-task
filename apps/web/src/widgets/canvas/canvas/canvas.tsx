@@ -11,7 +11,7 @@ import { useCallback } from "react";
 import { nodeHint, nodeLabel } from "@/entities/node";
 import { useWorkflowStore } from "@/entities/workflow";
 import { useConnectionValidator } from "@/features/connect-nodes";
-import { DELETE_KEY_CODES } from "@/shared/config";
+import { CANVAS_COLOR_MODE, DELETE_KEY_CODES } from "@/shared/config";
 import { Button } from "@/shared/ui";
 import { nodeTypes } from "../nodes/node-types";
 import { spawnPosition } from "./canvas.helpers";
@@ -56,6 +56,7 @@ export function Canvas() {
         onSelectionChange={handleSelectionChange}
         isValidConnection={isValidConnection}
         deleteKeyCode={DELETE_KEY_CODES}
+        colorMode={CANVAS_COLOR_MODE}
         fitView
       >
         <Background />

@@ -4,6 +4,8 @@ export const CONTENT_TYPE_JSON = "application/json";
 
 export const DELETE_KEY_CODES = ["Backspace", "Delete"];
 
+export const CANVAS_COLOR_MODE = "dark";
+
 export const NODE_SPAWN_AREA = {
   minX: 120,
   spreadX: 260,
