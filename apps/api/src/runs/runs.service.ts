@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { IMAGE_PROVIDER } from "../ai/image-provider";
 import type { ImageProvider } from "../ai/ai.types";
 import { AssetsService } from "../assets/assets.service";
+import { MAX_ACTIVE_RUNS } from "../common/constants";
 import { DB } from "../db/db.module";
 import type { Db, RunRow } from "../db/db.types";
 import { jobs as jobsTable, runs as runsTable } from "../db/schema";
@@ -35,6 +36,7 @@ export class RunsService {
     const run = new RunState(randomUUID(), graph, Date.now());
     this.executor.initJobs(run);
     this.activeRuns.set(run.id, run);
+    this.evictOldestRuns();
 
     this.insertRun(run, workflowId);
     run.onEvent((event) => this.persistEvent(run.id, event));
@@ -71,6 +73,13 @@ export class RunsService {
     void this.executor
       .run(run)
       .catch((error: unknown) => this.log.error(`run ${run.id} crashed`, error));
+  }
+
+  private evictOldestRuns(): void {
+    for (const runId of this.activeRuns.keys()) {
+      if (this.activeRuns.size <= MAX_ACTIVE_RUNS) return;
+      this.activeRuns.delete(runId);
+    }
   }
 
   private insertRun(run: RunState, workflowId: string | undefined): void {

@@ -116,6 +116,14 @@ test("POST /runs rejects a cyclic graph with 400", async () => {
   expect(res.status).toBe(400);
 });
 
+test("POST /assets rejects an svg, which would run scripts when served inline", async () => {
+  const form = new FormData();
+  form.append("file", new Blob(["<svg onload=alert(1)>"], { type: "image/svg+xml" }), "x.svg");
+
+  const res = await fetch(`${baseUrl}/assets`, { method: "POST", body: form });
+  expect(res.status).toBe(400);
+});
+
 test("GET /presets returns the seeded preset", async () => {
   const presets = PresetList.parse(await (await fetch(`${baseUrl}/presets`)).json());
   expect(presets.map((preset) => preset.id)).toContain("preset-demo");

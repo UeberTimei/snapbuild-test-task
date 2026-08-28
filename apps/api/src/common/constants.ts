@@ -28,6 +28,11 @@ export const EXTENSION_BY_MIME: Record<string, string> = {
   "image/webp": ".webp",
 };
 
+export const ALLOWED_UPLOAD_MIMES = Object.keys(EXTENSION_BY_MIME);
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+export const MAX_ACTIVE_RUNS = 100;
+
 export const MISSING_TOKEN_MESSAGE =
   "HF_TOKEN is not set. Create apps/api/.env with HF_TOKEN=<your huggingface token>.";
 

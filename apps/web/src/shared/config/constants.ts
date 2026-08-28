@@ -13,7 +13,7 @@ export const NODE_SPAWN_AREA = {
 
 export const UPLOAD_FIELD_NAME = "file";
 
-export const IMAGE_ACCEPT = "image/*";
+export const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp";
 
 export const ERROR_FALLBACK = {
   run: "could not start the run",
