@@ -10,7 +10,7 @@ export const RUN_CONCURRENCY = Number(process.env.RUN_CONCURRENCY ?? 4);
 export const HF_BASE_URL =
   process.env.HF_BASE_URL ?? "https://router.huggingface.co/hf-inference/models";
 export const HF_TEXT_TO_IMAGE_MODEL =
-  process.env.HF_T2I_MODEL ?? "black-forest-labs/FLUX.1-schnell";
+  process.env.HF_T2I_MODEL ?? "stabilityai/stable-diffusion-3-medium-diffusers";
 export const HF_IMAGE_TO_IMAGE_MODEL = process.env.HF_I2I_MODEL ?? "timbrooks/instruct-pix2pix";
 export const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS ?? 60_000);
 
