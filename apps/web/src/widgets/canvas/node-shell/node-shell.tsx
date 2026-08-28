@@ -1,10 +1,10 @@
 import { inputsOf, outputsOf } from "@repo/contracts";
-import { Handle, Position } from "@xyflow/react";
+import { Position } from "@xyflow/react";
 import { nodeLabel } from "@/entities/node";
 import { jobTone, selectJob, useRunStore } from "@/entities/run";
-import { evenlySpacedPercent } from "@/shared/lib";
 import { Badge } from "@/shared/ui";
-import type { NodeShellProps, PortHandlesProps } from "./node-shell.types";
+import { PortHandles } from "../port-handles/port-handles";
+import type { NodeShellProps } from "./node-shell.types";
 
 export function NodeShell({ id, kind, selected, children }: NodeShellProps) {
   const job = useRunStore(selectJob(id));
@@ -23,17 +23,4 @@ export function NodeShell({ id, kind, selected, children }: NodeShellProps) {
       <PortHandles ports={outputsOf(kind)} type="source" position={Position.Right} />
     </div>
   );
-}
-
-function PortHandles({ ports, type, position }: PortHandlesProps) {
-  return ports.map((port, index) => (
-    <Handle
-      key={port.id}
-      id={port.id}
-      type={type}
-      position={position}
-      className={`handle handle--${port.type}`}
-      style={{ top: evenlySpacedPercent(index, ports.length) }}
-    />
-  ));
 }

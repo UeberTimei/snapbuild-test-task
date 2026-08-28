@@ -1,1 +1,1 @@
-export { Canvas } from "./canvas";
+export { Canvas } from "./canvas/canvas";

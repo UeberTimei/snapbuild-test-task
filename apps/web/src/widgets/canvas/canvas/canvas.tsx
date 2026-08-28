@@ -3,8 +3,6 @@ import {
   Controls,
   MiniMap,
   ReactFlow,
-  type Connection,
-  type Edge,
   type OnSelectionChangeParams,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -12,11 +10,11 @@ import { NODE_KIND_ORDER } from "@repo/contracts";
 import { useCallback } from "react";
 import { nodeHint, nodeLabel } from "@/entities/node";
 import { useWorkflowStore } from "@/entities/workflow";
-import { isValidConnection } from "@/features/connect-nodes";
+import { useConnectionValidator } from "@/features/connect-nodes";
 import { DELETE_KEY_CODES } from "@/shared/config";
 import { Button } from "@/shared/ui";
+import { nodeTypes } from "../nodes/node-types";
 import { spawnPosition } from "./canvas.helpers";
-import { nodeTypes } from "./nodes";
 
 export function Canvas() {
   const nodes = useWorkflowStore((state) => state.nodes);
@@ -28,11 +26,7 @@ export function Canvas() {
   const removeSelected = useWorkflowStore((state) => state.removeSelected);
   const select = useWorkflowStore((state) => state.select);
 
-  const validateConnection = useCallback(
-    (connection: Connection | Edge) =>
-      isValidConnection(connection, useWorkflowStore.getState().nodes),
-    [],
-  );
+  const isValidConnection = useConnectionValidator();
 
   const handleSelectionChange = useCallback(
     ({ nodes: selectedNodes }: OnSelectionChangeParams) => select(selectedNodes[0]?.id ?? null),
@@ -60,7 +54,7 @@ export function Canvas() {
         onEdgesChange={onEdgesChange}
         onConnect={connect}
         onSelectionChange={handleSelectionChange}
-        isValidConnection={validateConnection}
+        isValidConnection={isValidConnection}
         deleteKeyCode={DELETE_KEY_CODES}
         fitView
       >

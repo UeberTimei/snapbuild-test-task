@@ -1,1 +1,1 @@
-export { NodeInspector } from "./node-inspector";
+export { NodeInspector } from "./node-inspector/node-inspector";

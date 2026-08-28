@@ -33,11 +33,8 @@ export class AssetsController {
       limits: { fileSize: MAX_UPLOAD_BYTES },
     }),
   )
-  async upload(
-    @UploadedFile() file: MultipartFile | undefined,
-  ): Promise<AssetUploadResponse> {
-    if (!file)
-      throw new BadRequestException(`${UPLOAD_FIELD_NAME} field is required`);
+  async upload(@UploadedFile() file: MultipartFile | undefined): Promise<AssetUploadResponse> {
+    if (!file) throw new BadRequestException(`${UPLOAD_FIELD_NAME} field is required`);
 
     if (!ALLOWED_UPLOAD_MIMES.includes(file.mimetype)) {
       throw new BadRequestException(
@@ -45,19 +42,12 @@ export class AssetsController {
       );
     }
 
-    const id = await this.assets.save(
-      new Uint8Array(file.buffer),
-      file.mimetype,
-      "upload",
-    );
+    const id = await this.assets.save(new Uint8Array(file.buffer), file.mimetype, "upload");
     return { id };
   }
 
   @Get(":id")
-  serve(
-    @Param("id") id: string,
-    @Res({ passthrough: true }) res: Response,
-  ): StreamableFile {
+  serve(@Param("id") id: string, @Res({ passthrough: true }) res: Response): StreamableFile {
     const asset = this.assets.get(id);
     if (!asset) throw new NotFoundException();
 

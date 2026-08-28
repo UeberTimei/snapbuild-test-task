@@ -1,6 +1,6 @@
 import type { NodeKind } from "@repo/contracts";
 import type { Connection, XYPosition } from "@xyflow/react";
-import { defaultDataFor } from "@/entities/node";
+import { defaultDataFor } from "@/entities/node/@x/workflow";
 import type { FlowEdge, FlowNode } from "./flow-node.types";
 
 let nodeCounter = 0;
